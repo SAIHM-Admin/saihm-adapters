@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "saihm-adapters"
+version = "0.1.1"
+description = "One owned, client-side-encrypted memory store for AI agents — portable across every model and framework, sealed client-side (Python holds no key), and provably erasable (GDPR Art. 17). Adapters for LangChain, LangGraph, LlamaIndex, RAG, CrewAI, and AutoGen ship as optional extras."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "SAIHM" }]
+keywords = [
+    "agent-memory", "mcp", "saihm", "encryption", "gdpr", "memory",
+    "langchain", "langgraph", "llamaindex", "llama-index", "rag", "retrieval", "chat-history",
+    "crewai", "autogen", "autogen-core", "external-memory",
+]
+dependencies = [
+    "mcp>=1.5,<3",  # drives the bundled Node MCP sidecar over stdio (verified on 1.x and 2.x)
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://saihm.coti.global"
+Documentation = "https://saihm.coti.global"
+Demos = "https://citw2.github.io/saihm-demos/"
+
+[project.optional-dependencies]
+# Each framework adapter is imported lazily; install only the extras you use. The class each
+# extra unlocks:
+#   langchain          -> saihm_adapters.SaihmChatMessageHistory
+#   langgraph          -> saihm_adapters.SaihmStore
+#   llamaindex         -> saihm_adapters.llamaindex_memory.SaihmMemory
+#   rag                -> saihm_adapters.SaihmRetriever
+#   crewai             -> saihm_adapters.SaihmStorageBackend
+#   autogen            -> saihm_adapters.autogen_memory.SaihmMemory
+langchain = ["langchain-core>=0.3,<2"]           # BaseChatMessageHistory (verified floor 0.3.0 + 1.6.1)
+langgraph = ["langgraph>=1.2,<1.3"]               # langgraph.store.base.BaseStore (verified on saihm-langgraph 0.1.1; capped <1.3)
+llamaindex = ["llama-index-core>=0.12,<1"]        # BaseMemory (verified floor 0.12.0 + 0.14.24)
+rag = ["llama-index-core>=0.14,<0.15"]            # BaseRetriever (verified floor 0.14.0 + 0.14.24)
+crewai = ["crewai>=1.15,<2"]                      # crewai.memory.storage.backend.StorageBackend (verified on 1.15; the old storage.interface.Storage was removed at 1.10.0, so floor 1.15 for the current memory API)
+autogen = ["autogen-core>=0.7,<0.8"]              # autogen_core.memory.Memory (verified 0.7.0 floor + 0.7.5)
+# To plug the AutoGen adapter into an AssistantAgent you also need autogen-agentchat.
+autogen-agentchat = ["autogen-agentchat>=0.7,<0.8"]
+# Everything at once. NOTE: [all] pulls both llama-index-core pins — [llamaindex] (>=0.12,<1)
+# and [rag] (>=0.14,<0.15) — and pip intersects them down to the rag ceiling (>=0.14,<0.15).
+# So [all] tracks the rag ceiling and will FAIL to resolve once llama-index-core reaches 0.15,
+# even though [llamaindex] alone still resolves. The rag pin is intentionally NOT widened: the
+# retriever is unverified on llama-index-core 0.15.
+all = [
+    "langchain-core>=0.3,<2",
+    "langgraph>=1.2,<1.3",
+    "llama-index-core>=0.14,<0.15",
+    "crewai>=1.15,<2",
+    "autogen-core>=0.7,<0.8",
+]
+# Full test environment: every framework plus the test runner.
+dev = ["saihm-adapters[all]", "pytest>=7", "pytest-asyncio>=0.23"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# The Node sidecar ships as package data (no node_modules — provisioned into a user cache on
+# first use; see saihm_adapters/_bootstrap.py).
+saihm_adapters = [
+    "_sidecar/server.mjs",
+    "_sidecar/sandbox.mjs",
+    "_sidecar/package.json",
+    "_sidecar/package-lock.json",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# importlib mode keeps the per-framework tests/ subdirectories (crewai, rag, langchain, autogen)
+# off sys.path, so those directory names never shadow the real framework packages of the same
+# name. Test file basenames are all unique, which this mode requires.
+addopts = "--import-mode=importlib"

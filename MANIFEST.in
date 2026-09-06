@@ -1,0 +1,16 @@
+# Controls the sdist only (the wheel's contents come from [tool.setuptools] in pyproject.toml).
+#
+# Why this file exists: setuptools' legacy defaults sweep in `test*.py` but NOT `conftest.py`,
+# so without it the sdist ships the tests with their fixtures missing and every test errors at
+# collection. Be explicit instead of relying on those defaults. `recursive-include` walks the
+# per-framework tests/ subdirectories too.
+include LICENSE
+include README.md
+recursive-include tests *.py
+
+# Sidecar sources must reach the sdist too, so `pip install <sdist>` can build a usable wheel.
+recursive-include src/saihm_adapters/_sidecar server.mjs sandbox.mjs package.json package-lock.json
+
+# Internal handoff notes — never ship and never reach the public repo.
+exclude STAGING.md
+prune .github
