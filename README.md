@@ -3,6 +3,10 @@
 **One memory store your agents own — portable across every model and framework, sealed
 client-side, and provably erasable.**
 
+<a href="https://saihm.net/overview"><img src="https://saihm.net/media/saihm-short-overview-play.jpg" alt="Watch: SAIHM in 6 minutes" width="480"></a>
+
+**New to SAIHM?** [Watch the 6-minute overview](https://saihm.net/overview) (captions and transcript), or [read the SAIHM manual (PDF)](https://saihm.net/manual).
+
 `saihm-adapters` gives a Python AI agent a single persistent memory backed by
 [SAIHM](https://saihm.coti.global): every cell is encrypted *inside your process* by a bundled
 Node sidecar — **Python never holds a key** — so the store is yours, not a vendor's. Point
