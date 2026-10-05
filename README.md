@@ -102,7 +102,7 @@ erase removes the key material, so the data cannot be recovered.
 
 ## Live demos
 
-Runnable notebooks and end-to-end examples: **<https://citw2.github.io/saihm-demos/>**
+Runnable notebooks and end-to-end examples: **<https://saihm-admin.github.io/saihm-demos/>**
 
 ## License
 
