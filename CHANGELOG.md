@@ -15,7 +15,28 @@
   file (`SAIHM_MASTER_SECRET_FILE`), so Python never reads it. The quickstart now says that the
   default, with no endpoint, is a local throwaway sandbox.
 - **Fixes in the README.** The quickstart reads `cell.text` (it said `cell.content`, which does
-  not exist), and the CrewAI line names the 1.15 storage-factory API it actually uses.
+  not exist), and the CrewAI line names the 1.15 storage-factory API the adapter uses.
+- **Start-up errors from the sidecar's dependencies** (a Node package that fails to load) now
+  raise `SaihmStartupError` too, and a sidecar that exits early without a message raises it
+  with the sidecar's last output.
+- **Requires `mcp` 1.21.1 or later.** Older `mcp` releases fail to import with current
+  pydantic.
+- **Local recall cache, documented.** With the default free-join key file, the 0.14 client keeps
+  the memories this device has opened in a local file beside the key; the README says where,
+  how `forget` treats it, and how to turn it off.
 - **Links.** Project links now point to https://saihm.net and the GitHub repository; the demos
   link points to https://saihm-admin.github.io/saihm-demos/.
 
+### Upgrading from 0.1.1
+
+- Start-up failures used to surface as an `ExceptionGroup` around an `mcp`
+  "Connection closed" error. They now raise `SaihmStartupError`, a `RuntimeError` subclass, or its subclass
+  `SaihmNoIdentityError`. Update any `except` clause that caught the old types.
+- The sidecar cache is keyed by the package version and the bundled Node lockfile, so the first
+  run after upgrading installs the new sidecar (`npm ci`) by itself. With
+  `SAIHM_SKIP_BOOTSTRAP=1`, provision the new cache directory before upgrading.
+- A directory you provisioned yourself and named with `SAIHM_SIDECAR_DIR` keeps the old
+  sidecar until you refresh it; the client warns when it differs from the installed release.
+  To refresh it, copy `server.mjs`, `sandbox.mjs`, `package.json` and `package-lock.json`
+  from the installed `saihm_adapters/_sidecar/` folder into it and run `npm ci --omit=dev`
+  there.

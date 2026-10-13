@@ -11,17 +11,16 @@
 //   SANDBOX  (default)      no SAIHM_ENDPOINT_URL -> a local, in-process blind endpoint; memory
 //                           lasts only as long as this process. Good for trying it with zero signup.
 //
-// If the sidecar cannot start (for example, no identity on this device yet), it writes one line,
-// BOOT_MARKER + JSON {kind, message}, to stderr and exits, so the Python client can raise a typed
-// error carrying the message instead of a bare "connection closed".
+// If the sidecar cannot start (for example, no identity on this device yet, or a dependency that
+// fails to load), it writes one line, BOOT_MARKER + JSON {kind, message}, to stderr and exits, so
+// the Python client can raise a typed error that carries the message.
 
 import { randomBytes } from 'node:crypto';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { deriveIdentity, toHex, fromHex } from '@saihm/client-pro';
-import { SaihmProClient } from '@saihm/mcp-server-pro';
-import { startSandbox } from './sandbox.mjs';
+
+// Loaded inside the boot try block below, so a dependency that fails to load is reported the
+// same way as any other start-up failure.
+let Server, StdioServerTransport, CallToolRequestSchema, ListToolsRequestSchema;
+let deriveIdentity, toHex, fromHex, SaihmProClient, startSandbox;
 
 const BOOT_MARKER = 'saihm-sidecar-error ';
 const NO_IDENTITY = /^No SAIHM (memory yet on this device|identity is configured)/;
@@ -44,6 +43,12 @@ async function makeClient() {
 
 let booted;
 try {
+  ({ Server } = await import('@modelcontextprotocol/sdk/server/index.js'));
+  ({ StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js'));
+  ({ CallToolRequestSchema, ListToolsRequestSchema } = await import('@modelcontextprotocol/sdk/types.js'));
+  ({ deriveIdentity, toHex, fromHex } = await import('@saihm/client-pro'));
+  ({ SaihmProClient } = await import('@saihm/mcp-server-pro'));
+  ({ startSandbox } = await import('./sandbox.mjs'));
   booted = await makeClient();
 } catch (e) {
   const message = String(e?.message ?? e);

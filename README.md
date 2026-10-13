@@ -9,10 +9,11 @@ client-side, and provably erasable.**
 
 `saihm-adapters` gives a Python AI agent a single persistent memory backed by
 [SAIHM](https://saihm.net): every cell is encrypted *inside your process* by a bundled
-Node sidecar — **Python never holds a key** — so the store is yours, not a vendor's. Point
+Node sidecar. With your key in a key file, **Python never reads your key**, and the store
+belongs to you and your users. Point
 LangChain, LlamaIndex, a RAG retriever, CrewAI, and AutoGen at the *same* store and the memory
 travels with your user across frameworks and across model providers. Erase a memory and it is
-cryptographically shredded (GDPR Art. 17), not merely de-indexed.
+cryptographically shredded (GDPR Art. 17): its key is destroyed, so it cannot be read again.
 
 - **Owned & sovereign** — you hold the keys; the server stores ciphertext it cannot read.
 - **Portable across models & frameworks** — one source of truth behind every adapter below.
@@ -58,7 +59,8 @@ client.close()
 ```
 
 With no `SAIHM_ENDPOINT_URL` set, the client runs against a **local sandbox**: a blind endpoint
-inside the sidecar process, with no sign-up and no network. It is a throwaway store, so its
+inside the sidecar process, with no sign-up and no calls to SAIHM. (The first use of the package
+runs `npm ci` once to install the sidecar.) It is a throwaway store, so its
 memories are gone when the client closes. Use it to try the API, then go live.
 
 ## Go live
@@ -81,7 +83,12 @@ export SAIHM_MASTER_SECRET_FILE=/full/path/to/free-identity.key
 ```
 
 The sidecar reads the key file itself, so your Python process never sees the key. Prefer the
-key file to pasting a hex secret into an environment variable. On a paid plan, follow the
+key file to pasting a hex secret into an environment variable.
+
+With the default free-join key file, the client also keeps a local recall cache: memories this
+device has opened are stored unencrypted beside the key, in a file only you can read (mode 600),
+so later recalls fetch only what changed. `forget` removes a memory from it, and
+`SAIHM_RECALL_CACHE=0` turns the cache off. On a paid plan, follow the
 [@saihm/mcp-server-pro README](https://github.com/SAIHM-Admin/saihm-mcp-server-pro#readme)
 to set your tier, then use the same two variables.
 
@@ -94,18 +101,22 @@ from saihm_adapters import SaihmMemoryClient, SaihmNoIdentityError
 try:
     client = SaihmMemoryClient()
 except SaihmNoIdentityError as e:
-    print(e.message)                  # the server's message; str(e) adds the free-join steps
+    print(e)                          # the free-join steps, then the server's message
 ```
 
 Any other sidecar start-up failure that the sidecar can explain raises `SaihmStartupError`
-(the parent class), again with its message.
+(the parent class) with its message. A sidecar that exits during start-up without one raises
+`SaihmStartupError` with its last output.
 
-### Per-framework adapters
+## Per-framework adapters
 
 Each adapter accepts a shared `client=` so a whole app (or a whole crew) reads and writes one
 store:
 
 ```python
+from saihm_adapters import SaihmMemoryClient
+client = SaihmMemoryClient()
+
 # LangChain — a BaseChatMessageHistory
 from saihm_adapters import SaihmChatMessageHistory
 history = SaihmChatMessageHistory(client=client)

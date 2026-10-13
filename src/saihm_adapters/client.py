@@ -3,8 +3,8 @@
 All cryptography happens in the Node sidecar (``server.mjs`` / ``@saihm/mcp-server-pro``):
 every cell is sealed client-side (ML-DSA-65 + AES-256-GCM, its key wrapped under *your*
 master secret) before it leaves the process, and the endpoint only ever sees ciphertext.
-Python holds no keys and performs no cryptography — it simply drives the sidecar over MCP
-stdio. This keeps one audited crypto implementation instead of porting it to a second language.
+Python performs no cryptography and, when the key is in a key file, never reads your key; it
+drives the sidecar over MCP stdio. This keeps one audited crypto implementation instead of porting it to a second language.
 
 This client is **synchronous and blocking**. Inside an async app (FastAPI, etc.), call its
 methods in a worker thread, e.g. ``await loop.run_in_executor(None, client.remember, text)``.
@@ -43,14 +43,16 @@ class Memory:
 
 # The sidecar writes this prefix + JSON {kind, message} to stderr when it cannot start.
 _BOOT_MARKER = "saihm-sidecar-error "
-_STDERR_TAIL = 64 * 1024
+_STDERR_TAIL = 8 * 1024
 
 _PYTHON_JOIN_HINT = (
-    "From Python: create an identity once on this machine with "
-    "`npx -y @saihm/mcp-server-pro free-join` (a one-time browser sign-in), then start the "
-    "client again. The sidecar finds the key file it saves; if you keep the key elsewhere, set "
-    "SAIHM_MASTER_SECRET_FILE to its full path. To try SAIHM without an identity, leave "
-    "SAIHM_ENDPOINT_URL unset for a local sandbox whose memory ends with the process."
+    "No SAIHM identity on this machine yet. From Python, use a key file: run "
+    "`npx -y @saihm/mcp-server-pro free-join` once (a one-time browser sign-in) and start the "
+    "client again. The sidecar finds the key file free-join saves; if you keep it elsewhere, set "
+    "SAIHM_MASTER_SECRET_FILE to its full path. With the key file, Python never reads your key. "
+    "To try SAIHM without an identity, leave SAIHM_ENDPOINT_URL unset for a local sandbox whose "
+    "memory ends with the process. The server's own message follows; its chat steps apply to "
+    "MCP hosts such as editors."
 )
 
 
@@ -66,14 +68,14 @@ class SaihmStartupError(RuntimeError):
 class SaihmNoIdentityError(SaihmStartupError):
     """Live mode (``SAIHM_ENDPOINT_URL`` set) found no SAIHM identity on this device.
 
-    :attr:`message` carries the server's message; ``str(error)`` adds how to create an identity
-    from Python."""
+    :attr:`message` carries the server's message; ``str(error)`` puts how to create an identity
+    from Python first, then that message."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message, kind="no-identity")
 
     def __str__(self) -> str:
-        return f"{self.message}\n\n{_PYTHON_JOIN_HINT}"
+        return f"{_PYTHON_JOIN_HINT}\n\n{self.message}"
 
 
 class _StderrTee:
@@ -224,6 +226,10 @@ class SaihmMemoryClient:
                 if boot.get("kind") == "no-identity":
                     raise SaihmNoIdentityError(str(boot["message"])) from None
                 raise SaihmStartupError(str(boot["message"]), str(boot.get("kind") or "startup")) from None
+            if tee.tail.strip():
+                raise SaihmStartupError(
+                    "The SAIHM sidecar exited during start-up. Its last output:\n" + tee.tail.strip()
+                ) from self._exc_box[0]
             raise self._exc_box[0]
         # Safety net: reap subprocess/thread if the caller forgets to close().
         self._finalizer = weakref.finalize(self, _reap, self._loop, self._thread, self._stop_box)

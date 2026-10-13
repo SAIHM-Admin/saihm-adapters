@@ -7,8 +7,10 @@ pinned Node dependencies there once (``npm ci``); later launches reuse it.
 
 Design notes:
 - **Reproducible:** ``npm ci`` against the bundled lockfile (exact versions), not ``npm install``.
-- **Version-keyed:** the cache dir is namespaced by this package's version, so upgrading the
-  Python package provisions a fresh sidecar instead of reusing stale ``node_modules``.
+- **Version-keyed:** the cache dir is namespaced by this package's version and a hash of the
+  bundled lockfile, so upgrading the Python package (or the Node pin) provisions a fresh sidecar.
+  A pre-provisioned ``SAIHM_SIDECAR_DIR`` whose lockfile differs from the bundled one gets a
+  warning naming how to refresh it.
 - **Race-safe without a lock dependency:** each caller installs into a private temp dir and
   then ``os.replace``-renames it into place atomically; a loser (target already provisioned)
   simply discards its temp copy. No file locks, no extra dependency.
@@ -18,10 +20,12 @@ Design notes:
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
 import tempfile
+import warnings
 from importlib import resources
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
@@ -56,6 +60,14 @@ def _package_version() -> str:
         return _pkg_version("saihm-adapters")
     except PackageNotFoundError:  # running from a source checkout, not an installed dist
         return "src"
+
+
+def _lock_digest(d: Path) -> str:
+    """Short hash of a sidecar dir's package-lock.json ("" when it has none)."""
+    try:
+        return hashlib.sha256((d / "package-lock.json").read_bytes()).hexdigest()[:12]
+    except OSError:
+        return ""
 
 
 def _cache_root() -> Path:
@@ -136,9 +148,18 @@ def ensure_sidecar() -> str:
         server = Path(override).expanduser().resolve() / "server.mjs"
         if not server.is_file():
             raise RuntimeError(f"SAIHM_SIDECAR_DIR={override} has no server.mjs")
+        if _lock_digest(server.parent) != _lock_digest(_bundle_dir()):
+            warnings.warn(
+                f"SAIHM_SIDECAR_DIR={override} was provisioned from a different saihm-adapters "
+                "release than the one installed, so it runs an older sidecar. Refresh it: copy "
+                f"{', '.join(_BUNDLE_FILES)} from {_bundle_dir()} into it, then run "
+                "`npm ci --omit=dev` there.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
         return str(server)
 
-    dest = _cache_root() / _package_version()
+    dest = _cache_root() / f"{_package_version()}-{_lock_digest(_bundle_dir())}"
     if not _looks_ready(dest):
         _provision(dest, allow_install=not _truthy("SAIHM_SKIP_BOOTSTRAP"))
     return str(dest / "server.mjs")
