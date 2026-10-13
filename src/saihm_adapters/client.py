@@ -15,6 +15,7 @@ import asyncio
 import json
 import os
 import re
+import sys
 import threading
 import weakref
 from dataclasses import dataclass
@@ -40,6 +41,80 @@ class Memory:
     text: str
 
 
+# The sidecar writes this prefix + JSON {kind, message} to stderr when it cannot start.
+_BOOT_MARKER = "saihm-sidecar-error "
+_STDERR_TAIL = 64 * 1024
+
+_PYTHON_JOIN_HINT = (
+    "From Python: create an identity once on this machine with "
+    "`npx -y @saihm/mcp-server-pro free-join` (a one-time browser sign-in), then start the "
+    "client again. The sidecar finds the key file it saves; if you keep the key elsewhere, set "
+    "SAIHM_MASTER_SECRET_FILE to its full path. To try SAIHM without an identity, leave "
+    "SAIHM_ENDPOINT_URL unset for a local sandbox whose memory ends with the process."
+)
+
+
+class SaihmStartupError(RuntimeError):
+    """The Node sidecar could not start. :attr:`message` is the sidecar's own explanation."""
+
+    def __init__(self, message: str, kind: str = "startup") -> None:
+        super().__init__(message)
+        self.message = message
+        self.kind = kind
+
+
+class SaihmNoIdentityError(SaihmStartupError):
+    """Live mode (``SAIHM_ENDPOINT_URL`` set) found no SAIHM identity on this device.
+
+    :attr:`message` carries the server's message; ``str(error)`` adds how to create an identity
+    from Python."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, kind="no-identity")
+
+    def __str__(self) -> str:
+        return f"{self.message}\n\n{_PYTHON_JOIN_HINT}"
+
+
+class _StderrTee:
+    """Pipe for the sidecar's stderr: echoes each line to ``sys.stderr`` as before, keeps a
+    bounded tail, and holds back the boot-error marker line so it can be raised instead."""
+
+    def __init__(self) -> None:
+        r, w = os.pipe()
+        self.writer = os.fdopen(w, "w")
+        self._reader = os.fdopen(r, "r", encoding="utf-8", errors="replace")
+        self.boot_error: Optional[dict] = None
+        self.tail = ""
+        self._thread = threading.Thread(target=self._pump, name="saihm-stderr", daemon=True)
+        self._thread.start()
+
+    def _pump(self) -> None:
+        with self._reader:
+            for line in self._reader:
+                if line.startswith(_BOOT_MARKER):
+                    try:
+                        self.boot_error = json.loads(line[len(_BOOT_MARKER):])
+                        continue
+                    except ValueError:
+                        pass
+                self.tail = (self.tail + line)[-_STDERR_TAIL:]
+                try:
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
+                except Exception:
+                    pass
+
+    def close_writer(self) -> None:
+        try:
+            self.writer.close()
+        except OSError:
+            pass
+
+    def join(self, timeout: float) -> None:
+        self._thread.join(timeout)
+
+
 class SaihmTimeout(TimeoutError):
     """A call exceeded the timeout. For ``remember``, the write may still have landed; the
     client-generated :attr:`cell_id` lets you :meth:`forget` it, so it is never an
@@ -52,12 +127,12 @@ class SaihmTimeout(TimeoutError):
 
 # --- Module-level loop driver so the background thread/task never holds a strong reference
 # --- to the client; that lets a dropped client be garbage-collected and reaped (no leak).
-async def _serve(node, server, env, ready, stop_box, session_box, exc_box):
+async def _serve(node, server, env, ready, stop_box, session_box, exc_box, tee):
     stop = asyncio.Event()
     stop_box.append(stop)
     params = StdioServerParameters(command=node, args=[server], env=env, cwd=str(Path(server).parent))
     try:
-        async with stdio_client(params) as (read, write):
+        async with stdio_client(params, errlog=tee.writer) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 session_box.append(session)
@@ -65,13 +140,15 @@ async def _serve(node, server, env, ready, stop_box, session_box, exc_box):
                 await stop.wait()
     except BaseException as e:  # surface startup failures back to __init__
         exc_box.append(e)
+    finally:
+        tee.close_writer()  # the sidecar has exited: let the stderr reader reach EOF
         ready.set()
 
 
-def _run_loop(loop, node, server, env, ready, stop_box, session_box, exc_box):
+def _run_loop(loop, node, server, env, ready, stop_box, session_box, exc_box, tee):
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(_serve(node, server, env, ready, stop_box, session_box, exc_box))
+        loop.run_until_complete(_serve(node, server, env, ready, stop_box, session_box, exc_box, tee))
     finally:
         loop.close()
 
@@ -95,11 +172,13 @@ class SaihmMemoryClient:
     background event loop, so blocking ``remember`` / ``recall`` / ``forget`` / ``status``
     calls all share the same in-process memory.
 
-    Sandbox mode by default (a local, in-process *blind* endpoint that lasts for the life
-    of this client). For the real, hosted, blind, non-custodial endpoint, pass ``env`` with
-    ``SAIHM_ENDPOINT_URL`` + ``SAIHM_MASTER_SECRET_HEX`` + either ``SAIHM_TIER=FREE`` (free tier;
-    run ``npx -y @saihm/mcp-server-pro free-join`` once first) or ``SAIHM_AUTH_HEADER`` (paid Pro; join
-    https://saihm.coti.global/join).
+    Sandbox mode by default: with no ``SAIHM_ENDPOINT_URL``, memory lives in a local,
+    in-process *blind* endpoint and is gone when this client closes. For the real, hosted,
+    blind, non-custodial endpoint, run ``npx -y @saihm/mcp-server-pro free-join`` once on this
+    machine, then set ``SAIHM_ENDPOINT_URL=https://saihm.net/mcp``. The sidecar finds the key
+    file free-join saves; set ``SAIHM_MASTER_SECRET_FILE`` if you keep it elsewhere. The key
+    stays in the file and the sidecar; Python never reads it. With no identity, live mode
+    raises :class:`SaihmNoIdentityError`.
 
     Always :meth:`close` it (or use it as a context manager). A forgotten client is reaped
     on garbage collection / interpreter exit, but explicit close is cleaner.
@@ -127,10 +206,11 @@ class SaihmMemoryClient:
         self._stop_box: list = []
         self._session_box: list = []
         self._exc_box: list = []
+        tee = _StderrTee()
         self._thread = threading.Thread(
             target=_run_loop,
             args=(self._loop, node, self._server, env, self._ready,
-                  self._stop_box, self._session_box, self._exc_box),
+                  self._stop_box, self._session_box, self._exc_box, tee),
             name="saihm-mcp",
             daemon=True,
         )
@@ -138,6 +218,12 @@ class SaihmMemoryClient:
         self._ready.wait()
         if self._exc_box:
             self._thread.join(timeout=5)
+            tee.join(timeout=5)
+            boot = tee.boot_error
+            if isinstance(boot, dict) and boot.get("message"):
+                if boot.get("kind") == "no-identity":
+                    raise SaihmNoIdentityError(str(boot["message"])) from None
+                raise SaihmStartupError(str(boot["message"]), str(boot.get("kind") or "startup")) from None
             raise self._exc_box[0]
         # Safety net: reap subprocess/thread if the caller forgets to close().
         self._finalizer = weakref.finalize(self, _reap, self._loop, self._thread, self._stop_box)

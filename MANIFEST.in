@@ -6,6 +6,7 @@
 # per-framework tests/ subdirectories too.
 include LICENSE
 include README.md
+include CHANGELOG.md
 recursive-include tests *.py
 
 # Sidecar sources must reach the sdist too, so `pip install <sdist>` can build a usable wheel.

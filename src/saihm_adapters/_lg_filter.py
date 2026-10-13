@@ -127,7 +127,7 @@ except ImportError:  # pragma: no cover - covered by tests that force this branc
         "from langgraph-checkpoint 4.2.0. Filter and namespace behaviour is unchanged for that "
         "version, but if LangGraph altered these semantics rather than merely relocating them, "
         "SaihmStore may now differ from InMemoryStore. Please report this so the adapter can be "
-        "updated: https://saihm.coti.global",
+        "updated: https://github.com/SAIHM-Admin/saihm-adapters/issues",
         RuntimeWarning,
         stacklevel=2,
     )

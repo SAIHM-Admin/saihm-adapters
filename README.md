@@ -8,7 +8,7 @@ client-side, and provably erasable.**
 **New to SAIHM?** [Watch the 6-minute overview](https://saihm.net/overview) (captions and transcript), or [read the SAIHM manual (PDF)](https://saihm.net/manual).
 
 `saihm-adapters` gives a Python AI agent a single persistent memory backed by
-[SAIHM](https://saihm.coti.global): every cell is encrypted *inside your process* by a bundled
+[SAIHM](https://saihm.net): every cell is encrypted *inside your process* by a bundled
 Node sidecar — **Python never holds a key** — so the store is yours, not a vendor's. Point
 LangChain, LlamaIndex, a RAG retriever, CrewAI, and AutoGen at the *same* store and the memory
 travels with your user across frameworks and across model providers. Erase a memory and it is
@@ -49,12 +49,56 @@ The core client works on its own — remember, recall, and erase, from any Pytho
 ```python
 from saihm_adapters import SaihmMemoryClient
 
-client = SaihmMemoryClient()          # reads SAIHM_* env for your account
+client = SaihmMemoryClient()          # no SAIHM_ENDPOINT_URL: a local sandbox (see below)
 cid = client.remember("Ada prefers metric units.")
 for cell in client.recall("units"):
-    print(cell.content)
+    print(cell.text)
 client.forget(cid)                    # cryptographic erase
+client.close()
 ```
+
+With no `SAIHM_ENDPOINT_URL` set, the client runs against a **local sandbox**: a blind endpoint
+inside the sidecar process, with no sign-up and no network. It is a throwaway store, so its
+memories are gone when the client closes. Use it to try the API, then go live.
+
+## Go live
+
+Your memory on the hosted service is tied to an identity: a key that stays on your machine.
+Create one once with the SAIHM command-line tool (Node.js ≥ 20):
+
+```bash
+npx -y @saihm/mcp-server-pro free-join
+```
+
+It shows a link and a short code, asks you to confirm with a quick GitHub sign-in in your
+browser, and then prints where it saved your key (by default `~/.saihm/free-identity.key`).
+Then point the client at the service:
+
+```bash
+export SAIHM_ENDPOINT_URL=https://saihm.net/mcp
+# Only if you keep the key somewhere other than the default:
+export SAIHM_MASTER_SECRET_FILE=/full/path/to/free-identity.key
+```
+
+The sidecar reads the key file itself, so your Python process never sees the key. Prefer the
+key file to pasting a hex secret into an environment variable. On a paid plan, follow the
+[@saihm/mcp-server-pro README](https://github.com/SAIHM-Admin/saihm-mcp-server-pro#readme)
+to set your tier, then use the same two variables.
+
+If live mode finds no identity, the client raises `SaihmNoIdentityError` with the server's own
+explanation and these steps:
+
+```python
+from saihm_adapters import SaihmMemoryClient, SaihmNoIdentityError
+
+try:
+    client = SaihmMemoryClient()
+except SaihmNoIdentityError as e:
+    print(e.message)                  # the server's message; str(e) adds the free-join steps
+```
+
+Any other sidecar start-up failure that the sidecar can explain raises `SaihmStartupError`
+(the parent class), again with its message.
 
 ### Per-framework adapters
 
@@ -74,7 +118,7 @@ store = SaihmStore(client=client)
 from saihm_adapters import SaihmRetriever
 retriever = SaihmRetriever(client=client, similarity_top_k=3)
 
-# CrewAI — a Storage backend for ExternalMemory
+# CrewAI (1.15+) — a memory StorageBackend, installed with set_memory_storage_factory
 from saihm_adapters import SaihmStorageBackend
 backend = SaihmStorageBackend(client=client)
 

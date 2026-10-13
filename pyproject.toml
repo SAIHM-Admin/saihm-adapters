@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "saihm-adapters"
-version = "0.1.1"
+version = "0.1.2"
 description = "One owned, client-side-encrypted memory store for AI agents — portable across every model and framework, sealed client-side (Python holds no key), and provably erasable (GDPR Art. 17). Adapters for LangChain, LangGraph, LlamaIndex, RAG, CrewAI, and AutoGen ship as optional extras."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ authors = [{ name = "SAIHM" }]
 keywords = [
     "agent-memory", "mcp", "saihm", "encryption", "gdpr", "memory",
     "langchain", "langgraph", "llamaindex", "llama-index", "rag", "retrieval", "chat-history",
-    "crewai", "autogen", "autogen-core", "external-memory",
+    "crewai", "autogen", "autogen-core", "external-memory", "enterprise",
 ]
 dependencies = [
     "mcp>=1.5,<3",  # drives the bundled Node MCP sidecar over stdio (verified on 1.x and 2.x)
@@ -30,9 +30,12 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://saihm.coti.global"
-Documentation = "https://saihm.coti.global"
-Demos = "https://citw2.github.io/saihm-demos/"
+Homepage = "https://saihm.net"
+Documentation = "https://github.com/SAIHM-Admin/saihm-adapters#readme"
+Source = "https://github.com/SAIHM-Admin/saihm-adapters"
+Issues = "https://github.com/SAIHM-Admin/saihm-adapters/issues"
+Changelog = "https://github.com/SAIHM-Admin/saihm-adapters/blob/main/CHANGELOG.md"
+Demos = "https://saihm-admin.github.io/saihm-demos/"
 
 [project.optional-dependencies]
 # Each framework adapter is imported lazily; install only the extras you use. The class each

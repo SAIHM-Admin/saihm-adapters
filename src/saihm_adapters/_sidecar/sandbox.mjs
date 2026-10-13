@@ -8,8 +8,8 @@
 // point of SAIHM — made concrete here in ~130 lines you can read end to end.
 //
 // It exists so you can run the demo fully offline with zero signup. To talk to
-// the real, hosted service instead, set SAIHM_ENDPOINT_URL=https://saihm.coti.global/mcp
-// (see the README "Go live" section) and join at https://saihm.coti.global/join.
+// the real, hosted service instead, join once with `npx -y @saihm/mcp-server-pro free-join`
+// and set SAIHM_ENDPOINT_URL=https://saihm.net/mcp (see the README "Go live" section).
 
 import { createServer } from 'node:http';
 

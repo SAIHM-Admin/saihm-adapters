@@ -30,12 +30,14 @@ from __future__ import annotations
 
 import importlib
 
-from .client import Memory, SaihmMemoryClient, SaihmTimeout
+from .client import Memory, SaihmMemoryClient, SaihmNoIdentityError, SaihmStartupError, SaihmTimeout
 
 __all__ = [
     "SaihmMemoryClient",
     "Memory",
     "SaihmTimeout",
+    "SaihmStartupError",
+    "SaihmNoIdentityError",
     "SaihmChatMessageHistory",
     "SaihmStore",
     "SaihmRetriever",

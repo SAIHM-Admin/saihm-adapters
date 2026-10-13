@@ -4,10 +4,16 @@
 // status) that seal client-side via @saihm/mcp-server-pro; the endpoint only sees ciphertext.
 //
 // Modes:
-//   LIVE     (recommended)  set SAIHM_ENDPOINT_URL + SAIHM_MASTER_SECRET_HEX + SAIHM_TIER=FREE (free tier; run `npx -y @saihm/mcp-server-pro free-join` once first) OR SAIHM_AUTH_HEADER (paid Pro)
-//                           -> durable, hosted, blind memory (join: https://saihm.coti.global/join)
+//   LIVE     (recommended)  set SAIHM_ENDPOINT_URL=https://saihm.net/mcp. Your identity comes from
+//                           the key file `npx -y @saihm/mcp-server-pro free-join` saves (found
+//                           automatically, or named by SAIHM_MASTER_SECRET_FILE)
+//                           -> durable, hosted, blind memory (https://saihm.net)
 //   SANDBOX  (default)      no SAIHM_ENDPOINT_URL -> a local, in-process blind endpoint; memory
-//                           lasts for the editor session. Great for trying it with zero signup.
+//                           lasts only as long as this process. Good for trying it with zero signup.
+//
+// If the sidecar cannot start (for example, no identity on this device yet), it writes one line,
+// BOOT_MARKER + JSON {kind, message}, to stderr and exits, so the Python client can raise a typed
+// error carrying the message instead of a bare "connection closed".
 
 import { randomBytes } from 'node:crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -17,10 +23,17 @@ import { deriveIdentity, toHex, fromHex } from '@saihm/client-pro';
 import { SaihmProClient } from '@saihm/mcp-server-pro';
 import { startSandbox } from './sandbox.mjs';
 
+const BOOT_MARKER = 'saihm-sidecar-error ';
+const NO_IDENTITY = /^No SAIHM (memory yet on this device|identity is configured)/;
+
 async function makeClient() {
   if (process.env.SAIHM_ENDPOINT_URL) {
     return { client: SaihmProClient.bootFromEnv(), mode: 'live', close: async () => {} };
   }
+  // A sandbox identity lasts one process. Keep it off disk: no erasure feed under ~/.saihm for a
+  // throwaway tenant, and no recall cache (which also silences the client's notice about it).
+  process.env.SAIHM_ERASURE_FEED = '0';
+  process.env.SAIHM_RECALL_CACHE = '0';
   const { url, close } = await startSandbox();
   const master = process.env.SAIHM_MASTER_SECRET_HEX
     ? fromHex(process.env.SAIHM_MASTER_SECRET_HEX.trim())
@@ -29,7 +42,16 @@ async function makeClient() {
   return { client, mode: 'sandbox', close };
 }
 
-const { client, mode, close } = await makeClient();
+let booted;
+try {
+  booted = await makeClient();
+} catch (e) {
+  const message = String(e?.message ?? e);
+  const kind = NO_IDENTITY.test(message) ? 'no-identity' : 'startup';
+  process.stderr.write(BOOT_MARKER + JSON.stringify({ kind, message }) + '\n', () => process.exit(1));
+  await new Promise(() => {}); // wait for the write callback to exit
+}
+const { client, mode, close } = booted;
 
 const TOOLS = [
   {
@@ -54,7 +76,7 @@ const TOOLS = [
   },
 ];
 
-const server = new Server({ name: 'saihm-adapters', version: '0.1.0' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'saihm-adapters', version: '0.1.2' }, { capabilities: { tools: {} } });
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
