@@ -34,7 +34,9 @@
   `SaihmNoIdentityError`. Update any `except` clause that caught the old types.
 - The sidecar cache is keyed by the package version and the bundled Node lockfile, so the first
   run after upgrading installs the new sidecar (`npm ci`) by itself. With
-  `SAIHM_SKIP_BOOTSTRAP=1`, provision the new cache directory before upgrading.
+  `SAIHM_SKIP_BOOTSTRAP=1`, the first run after upgrading stops with an error that names the
+  new directory: provision it there (copy the bundled sidecar files and run
+  `npm ci --omit=dev`), or point `SAIHM_SIDECAR_DIR` at a directory you provision.
 - A directory you provisioned yourself and named with `SAIHM_SIDECAR_DIR` keeps the old
   sidecar until you refresh it; the client warns when it differs from the installed release.
   To refresh it, copy `server.mjs`, `sandbox.mjs`, `package.json` and `package-lock.json`

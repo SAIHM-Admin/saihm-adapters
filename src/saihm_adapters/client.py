@@ -44,6 +44,8 @@ class Memory:
 # The sidecar writes this prefix + JSON {kind, message} to stderr when it cannot start.
 _BOOT_MARKER = "saihm-sidecar-error "
 _STDERR_TAIL = 8 * 1024
+# server.mjs prints this once its MCP transport is connected.
+_READY_LINE = "saihm-adapters MCP server ready"
 
 _PYTHON_JOIN_HINT = (
     "No SAIHM identity on this machine yet. From Python, use a key file: run "
@@ -227,8 +229,12 @@ class SaihmMemoryClient:
                     raise SaihmNoIdentityError(str(boot["message"])) from None
                 raise SaihmStartupError(str(boot["message"]), str(boot.get("kind") or "startup")) from None
             if tee.tail.strip():
+                if _READY_LINE in tee.tail:
+                    what = "The SAIHM sidecar started, but the MCP handshake with it failed"
+                else:
+                    what = "The SAIHM sidecar exited during start-up"
                 raise SaihmStartupError(
-                    "The SAIHM sidecar exited during start-up. Its last output:\n" + tee.tail.strip()
+                    f"{what} ({type(self._exc_box[0]).__name__}). Its last output:\n" + tee.tail.strip()
                 ) from self._exc_box[0]
             raise self._exc_box[0]
         # Safety net: reap subprocess/thread if the caller forgets to close().

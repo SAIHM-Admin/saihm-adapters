@@ -62,6 +62,7 @@ def test_dependency_load_failure_raises_startup_error(tmp_path, monkeypatch):
             SaihmMemoryClient(env={"HOME": str(tmp_path)}, timeout=30)
     assert exc.value.kind == "startup"
     assert "@modelcontextprotocol/sdk" in exc.value.message
+    assert exc.value.__cause__ is None  # reported by the sidecar itself, not the output fallback
 
 
 def test_stale_sidecar_dir_warns(tmp_path, monkeypatch):

@@ -88,7 +88,9 @@ key file to pasting a hex secret into an environment variable.
 With the default free-join key file, the client also keeps a local recall cache: memories this
 device has opened are stored unencrypted beside the key, in a file only you can read (mode 600),
 so later recalls fetch only what changed. `forget` removes a memory from it, and
-`SAIHM_RECALL_CACHE=0` turns the cache off. On a paid plan, follow the
+`SAIHM_RECALL_CACHE=0` turns the cache off. With a key file in any other place the cache is
+off, and the first recall prints a one-time note about it on stderr; `SAIHM_RECALL_CACHE=0`
+silences that note too. On a paid plan, follow the
 [@saihm/mcp-server-pro README](https://github.com/SAIHM-Admin/saihm-mcp-server-pro#readme)
 to set your tier, then use the same two variables.
 
