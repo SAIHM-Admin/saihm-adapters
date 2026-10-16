@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "saihm-adapters"
 version = "0.1.3"
-description = "Free-to-start portable memory for Python AI agents: encrypted on your machine, provably erased. One store for LangChain, LangGraph, LlamaIndex, CrewAI and AutoGen."
+description = "Free-to-start portable memory for Python AI agents: encrypted on your machine, provably erasable. One store for LangChain, LangGraph, LlamaIndex, CrewAI and AutoGen."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

@@ -1,8 +1,9 @@
 """CrewAI integration: a SAIHM-backed ``StorageBackend`` for CrewAI's unified memory.
 
 Route CrewAI's long-term memory through SAIHM so it is **yours**: portable across models and
-frameworks, non-custodial (sealed client-side by the bundled SAIHM Node sidecar — CrewAI never
-sees a key), and provably erasable (GDPR Art. 17). Register it once at startup:
+frameworks, non-custodial (sealed client-side by the bundled SAIHM Node sidecar; with the key in
+a key file, CrewAI never sees it), and provably erasable (GDPR Art. 17). Register it once at
+startup:
 
     from crewai.memory.storage.factory import set_memory_storage_factory
     from saihm_adapters import SaihmStorageBackend

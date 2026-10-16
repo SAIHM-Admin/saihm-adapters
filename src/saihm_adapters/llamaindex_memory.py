@@ -2,7 +2,8 @@
 
 Drop it into a LlamaIndex chat engine / agent (``memory=SaihmMemory.from_defaults()``)
 to get memory you own: portable across models, non-custodial (sealed client-side by the
-SAIHM sidecar — LlamaIndex never sees a key), and provably erasable.
+bundled SAIHM Node sidecar; with the key in a key file, LlamaIndex never sees it), and
+provably erasable.
 
     from saihm_adapters.llamaindex_memory import SaihmMemory
     from llama_index.core.llms import ChatMessage, MessageRole

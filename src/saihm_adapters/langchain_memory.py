@@ -2,7 +2,8 @@
 
 Use it on its own, or plug it into ``RunnableWithMessageHistory`` to give any LangChain
 chain a memory that is **yours**: portable across models, non-custodial (sealed
-client-side by the SAIHM sidecar — LangChain never sees a key), and provably erasable.
+client-side by the bundled SAIHM Node sidecar; with the key in a key file, LangChain never
+sees it), and provably erasable.
 
     from saihm_adapters import SaihmChatMessageHistory
     history = SaihmChatMessageHistory()            # local blind sandbox by default

@@ -29,37 +29,42 @@ never collide on one name.
 from __future__ import annotations
 
 import importlib
-import importlib.util
+import importlib.metadata
+import re
 
 from .client import Memory, SaihmMemoryClient, SaihmNoIdentityError, SaihmStartupError, SaihmTimeout
 
-# Unambiguous adapter classes exposed at the top level: name -> (submodule, extra, framework).
+# Unambiguous adapter classes exposed at the top level:
+# name -> (submodule, extra, framework distribution, lowest version its extra allows).
 _LAZY = {
-    "SaihmChatMessageHistory": ("langchain_memory", "langchain", "langchain_core"),
-    "SaihmStore": ("langgraph_store", "langgraph", "langgraph"),
-    "SaihmRetriever": ("rag_memory", "rag", "llama_index.core"),
-    "SaihmStorageBackend": ("crewai_storage", "crewai", "crewai"),
+    "SaihmChatMessageHistory": ("langchain_memory", "langchain", "langchain-core", (0, 3)),
+    "SaihmStore": ("langgraph_store", "langgraph", "langgraph", (1, 2)),
+    "SaihmRetriever": ("rag_memory", "rag", "llama-index-core", (0, 14)),
+    "SaihmStorageBackend": ("crewai_storage", "crewai", "crewai", (1, 15)),
 }
 
 
-def _installed(module: str) -> bool:
-    """Whether a framework can be imported, looked up without importing it."""
+def _installed(distribution: str, floor: tuple) -> bool:
+    """Whether a framework is installed at or above ``floor``. Only its installed metadata is
+    read, so no framework code runs when ``saihm_adapters`` is imported."""
     try:
-        return importlib.util.find_spec(module) is not None
-    except (ImportError, ValueError):  # a dotted name whose parent package is missing
+        version = importlib.metadata.version(distribution)
+    except Exception:  # not installed, or metadata that cannot be read
         return False
+    release = re.match(r"\d+(?:\.\d+)*", version or "")
+    return bool(release) and tuple(int(part) for part in release.group().split(".")) >= floor
 
 
-# An adapter is listed only when its framework is installed, so help(saihm_adapters) and
-# ``from saihm_adapters import *`` work with any set of extras. Asking for a missing one by name
-# still raises an ImportError that names the extra to install.
+# An adapter is listed only when its framework is installed at a version its extra allows, so
+# help(saihm_adapters) and ``from saihm_adapters import *`` work with any set of extras. Asking
+# for an unlisted one by name still imports it, or raises an ImportError that names the extra.
 __all__ = [
     "SaihmMemoryClient",
     "Memory",
     "SaihmTimeout",
     "SaihmStartupError",
     "SaihmNoIdentityError",
-] + [name for name, (_, _, framework) in _LAZY.items() if _installed(framework)]
+] + [name for name, (_, _, dist, floor) in _LAZY.items() if _installed(dist, floor)]
 
 # Names carried by more than one framework submodule as different classes. Importing them from
 # the top level would be a silent collision, so it is refused with a directive to the submodule.
@@ -73,7 +78,7 @@ _AMBIGUOUS = {
 
 def __getattr__(name):  # PEP 562 — lazy adapter imports
     if name in _LAZY:
-        module, extra, _ = _LAZY[name]
+        module, extra, _, _ = _LAZY[name]
         try:
             mod = importlib.import_module(f"{__name__}.{module}")
         except ModuleNotFoundError as exc:

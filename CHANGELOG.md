@@ -42,8 +42,9 @@
   [pricing page](https://saihm.net/pricing)), troubleshooting, how it works, configuration
   and support. New: a runnable LangGraph graph (`graph.compile(store=SaihmStore())`), the
   CrewAI registration (`set_memory_storage_factory`), and a table of the main settings. The
-  local-copy note now says the copy holds memories this device has written as well as opened,
-  and that a second device keeps a forgotten memory until its next recall.
+  local-copy note now says the copy holds your memories, those this device has written and
+  every memory a recall fetches, whatever its query, and that a second device keeps a
+  forgotten memory until its next recall.
 - **Tests** run the full client against `mcp` 1.x and 2.x, including the refusal paths and the
   start-up time limit, with a local stand-in for the hosted endpoint. A timed-out call is
   tested to raise `SaihmTimeout`.
@@ -61,6 +62,8 @@
   still catch them.
 - The previous sidecar stays in `~/.cache/saihm-adapters/0.1.2-*` (under `$XDG_CACHE_HOME` if
   set). Nothing loads it; delete it so security scans of the cache see only the current one.
+- If pip reports conflicting dependencies with an `mcp` older than 1.21.1, upgrade `mcp` to
+  1.21.1 or later, or pin `saihm-adapters==0.1.1`.
 
 ## 0.1.2
 

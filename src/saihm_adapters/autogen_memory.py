@@ -1,8 +1,8 @@
 """AutoGen integration: an ``autogen_core.memory.Memory`` backed by SAIHM.
 
 Give any AutoGen agent a memory that is **yours**: portable across models, non-custodial
-(sealed client-side by the bundled SAIHM Node sidecar — AutoGen never sees a key), and
-provably erasable. Plug it straight into an ``AssistantAgent``:
+(sealed client-side by the bundled SAIHM Node sidecar; with the key in a key file, AutoGen
+never sees it), and provably erasable. Plug it straight into an ``AssistantAgent``:
 
     from autogen_agentchat.agents import AssistantAgent
     from saihm_adapters.autogen_memory import SaihmMemory
