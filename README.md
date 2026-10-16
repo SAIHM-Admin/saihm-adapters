@@ -323,9 +323,10 @@ copy was deleted somewhere.
   every app that uses the same key, MCP hosts included, because an app without it writes the
   copy again. A copy written earlier stays, and `forget` no longer updates it. To remove it,
   delete the `recall.*` files beside your key file (`~/.saihm/recall.*`, or in `SAIHM_HOME`; a
-  `SAIHM_RECALL_CACHE_PATH` file too). With a key set by `SAIHM_MASTER_SECRET_FILE` or an
-  exported identity, the cache is off, and the first recall prints a one-time note about it on
-  stderr; `SAIHM_RECALL_CACHE=0` silences that note too.
+  `SAIHM_RECALL_CACHE_PATH` file too). With a key file other than the default one, set by
+  `SAIHM_MASTER_SECRET_FILE`, or with an exported identity, the cache is off unless
+  `SAIHM_RECALL_CACHE_PATH` names a file for it. With the cache off, the first recall prints a
+  one-time note about it on stderr; `SAIHM_RECALL_CACHE=0` silences that note too.
 
 ## Configuration
 
