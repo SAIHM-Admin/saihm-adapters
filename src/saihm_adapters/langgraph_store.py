@@ -1,8 +1,8 @@
 """LangGraph integration: a SAIHM-backed ``BaseStore`` for long-term, cross-thread memory.
 
 Give a LangGraph app long-term memory it owns: portable across models and frameworks,
-non-custodial (sealed client-side by the bundled SAIHM Node sidecar — Python never holds a
-key), and provably erasable (GDPR Art. 17). Plug it into the graph:
+non-custodial (sealed client-side by the bundled SAIHM Node sidecar; with the key in a key
+file, Python never reads it), and provably erasable (GDPR Art. 17). Plug it into the graph:
 
     from saihm_adapters import SaihmStore
 

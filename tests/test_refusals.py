@@ -121,15 +121,21 @@ def test_active_identity_starts_after_one_sign_in(fake_endpoint, clean_identity_
     assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 1
 
 
-def _refusal(reason):
-    return (401, {"error": "verification_failed", "reason": reason})
+def _refusal(reason, delay_s=None):
+    body = {"error": "verification_failed", "reason": reason}
+    return (401, body) if delay_s is None else (401, body, delay_s)
 
 
-def test_challenge_refusal_gets_one_more_sign_in(fake_endpoint, clean_identity_env, make_key, tmp_path):
+# The refusals about the one-time challenge, as the service sends them.
+CHALLENGE_CODES = ("unknown_nonce", "nonce_expired", "nonce_replay")
+
+
+@pytest.mark.parametrize("code", CHALLENGE_CODES)
+def test_challenge_refusal_gets_one_more_sign_in(code, fake_endpoint, clean_identity_env, make_key, tmp_path):
     # The service lost its one-time challenge, for example in a restart between the two sign-in
     # steps. That says nothing about the identity, so start-up signs in once more.
     make_key(tmp_path / ".saihm" / "free-identity.key")
-    fake_endpoint.onboard_reply = [_refusal("unknown_nonce"), (200, {"jwt": "test-token"})]
+    fake_endpoint.onboard_reply = [_refusal(code), (200, {"jwt": "test-token"})]
     fake_endpoint.call_reply = (200, {"tier": "FREE", "activeShardCount": 0, "custody": "non-custodial"})
     env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
     with SaihmMemoryClient(env=env, timeout=60) as c:
@@ -137,14 +143,40 @@ def test_challenge_refusal_gets_one_more_sign_in(fake_endpoint, clean_identity_e
         assert c.status() == "tier=FREE memories=0 custody=non-custodial"
 
 
-def test_challenge_refused_twice_does_not_block_start_up(fake_endpoint, clean_identity_env, make_key, tmp_path):
+@pytest.mark.parametrize("code", CHALLENGE_CODES)
+def test_challenge_refused_twice_does_not_block_start_up(code, fake_endpoint, clean_identity_env, make_key, tmp_path):
     make_key(tmp_path / ".saihm" / "free-identity.key")
-    fake_endpoint.onboard_reply = _refusal("nonce_expired")
+    fake_endpoint.onboard_reply = _refusal(code)
     env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
     with SaihmMemoryClient(env=env, timeout=60) as c:
         assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 2  # one more, then go ahead
-        with pytest.raises(RuntimeError, match="nonce_expired"):
+        with pytest.raises(RuntimeError, match=code):
             c.remember("x")
+
+
+def test_late_challenge_refusal_shares_the_20_s_limit(fake_endpoint, clean_identity_env, make_key, tmp_path):
+    # The second sign-in gets what is left of the 20 s, not 20 s of its own: refused at 10 s,
+    # then a sign-in that never answers, and the client still starts near 20 s (not 30 s).
+    make_key(tmp_path / ".saihm" / "free-identity.key")
+    fake_endpoint.onboard_reply = [_refusal("unknown_nonce", delay_s=10), fake_endpoint.HANG]
+    env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
+    began = time.monotonic()
+    with SaihmMemoryClient(env=env, timeout=60):
+        waited = time.monotonic() - began
+    assert 19 <= waited < 27, waited
+    assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 2
+
+
+def test_401_after_a_good_sign_in_does_not_block_start_up(fake_endpoint, clean_identity_env, make_key, tmp_path):
+    # Only a refused sign-in says the identity is not active. A memory call answered 401 after a
+    # good sign-in lets the client start, and the calls report it.
+    make_key(tmp_path / ".saihm" / "free-identity.key")
+    fake_endpoint.onboard_reply = (200, {"jwt": "test-token"})
+    fake_endpoint.call_reply = (401, {"error": "unauthorized"})
+    env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
+    with SaihmMemoryClient(env=env, timeout=60) as c:
+        with pytest.raises(RuntimeError, match="401|unauthorized"):
+            c.status()
 
 
 def test_settings_refusal_names_its_reason_code(fake_endpoint, clean_identity_env, make_key, tmp_path):
@@ -183,6 +215,7 @@ def test_other_sign_in_failures_do_not_block_start_up(fake_endpoint, clean_ident
     fake_endpoint.onboard_reply = (503, {"error": "unavailable"})
     env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
     with SaihmMemoryClient(env=env, timeout=60) as c:
+        assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 1  # no second sign-in for it
         with pytest.raises(RuntimeError, match="503"):
             c.remember("x")
 

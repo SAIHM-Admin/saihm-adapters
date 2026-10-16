@@ -4,7 +4,7 @@ Drop it into a LlamaIndex chat engine / agent (``memory=SaihmMemory.from_default
 to get memory you own: portable across models, non-custodial (sealed client-side by the
 SAIHM sidecar — LlamaIndex never sees a key), and provably erasable.
 
-    from saihm_adapters import SaihmMemory
+    from saihm_adapters.llamaindex_memory import SaihmMemory
     from llama_index.core.llms import ChatMessage, MessageRole
     mem = SaihmMemory.from_defaults()              # local blind sandbox by default
     mem.put(ChatMessage(role=MessageRole.USER, content="My name is Dana."))

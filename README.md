@@ -23,9 +23,9 @@ model, or a different company's product.
 **Encrypted at rest, by default.** Every memory is encrypted on your own machine, inside a
 bundled Node.js sidecar, before it goes anywhere, and SAIHM stores only that ciphertext.
 Nobody else can read your memories — not the storage, not SAIHM. With your key in a key
-file, Python never reads the key. There is nothing to switch on. With the default free-join
-key file, the client also keeps a local copy of the memories this device has opened, readable
-only by your user account, so recall is fast; set `SAIHM_RECALL_CACHE=0` to keep none
+file, Python never reads the key. With the default free-join key file, the client also keeps
+a local copy of the memories this device has written or opened, readable only by your user
+account, so recall is fast; set `SAIHM_RECALL_CACHE=0` to keep none
 ([details](#how-it-works)).
 
 ## Start free — one command
@@ -248,7 +248,7 @@ every memory.
 
 ## See it run
 
-Runnable notebooks and end-to-end examples: **<https://saihm-admin.github.io/saihm-demos/>**
+Runnable demos and end-to-end examples: **<https://saihm-admin.github.io/saihm-demos/>**
 
 ## What it costs
 
@@ -308,10 +308,11 @@ was deleted somewhere.
 - **Portable across models & frameworks.** Every adapter reads and writes the same store,
   so the memory travels with your user.
 - **Fast recall on your device.** With the default free-join key file, the client keeps a
-  local copy of the memories this device has already opened, so a recall fetches only
+  local copy of the memories this device has written or opened, so a recall fetches only
   what is new. That copy is not encrypted, only your user account can read it, and
-  `forget` removes a memory from it too. A backup of `~/.saihm` holds that copy as well,
-  and erasure cannot reach a backup.
+  `forget` removes a memory from it too. A second device that uses the same key file keeps
+  its own copy until its next recall. A backup of `~/.saihm` holds that copy as well, and
+  erasure cannot reach a backup.
 - **Everything encrypted at rest, if you prefer.** Set `SAIHM_RECALL_CACHE=0` and the
   client keeps no local copy, so every memory SAIHM holds at rest is ciphertext. The
   trade-off is speed: each recall then fetches all your memories again. With a key file

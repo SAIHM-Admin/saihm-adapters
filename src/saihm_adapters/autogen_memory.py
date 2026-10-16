@@ -5,7 +5,7 @@ Give any AutoGen agent a memory that is **yours**: portable across models, non-c
 provably erasable. Plug it straight into an ``AssistantAgent``:
 
     from autogen_agentchat.agents import AssistantAgent
-    from saihm_adapters import SaihmMemory
+    from saihm_adapters.autogen_memory import SaihmMemory
 
     agent = AssistantAgent("assistant", model_client=..., memory=[SaihmMemory()])
 

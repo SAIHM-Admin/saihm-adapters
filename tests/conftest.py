@@ -75,6 +75,9 @@ class _EndpointHandler(BaseHTTPRequestHandler):
         if reply == HANG:
             ep.released.wait(120)
             reply = (503, {"error": "unavailable"})
+        elif len(reply) == 3:  # (status, json, seconds to wait before answering)
+            ep.released.wait(reply[2])
+            reply = reply[:2]
         self._reply(*reply)
 
     def log_message(self, *args):  # keep the test output clean
@@ -83,8 +86,8 @@ class _EndpointHandler(BaseHTTPRequestHandler):
 
 class FakeEndpoint:
     """``url`` is the endpoint; ``seen`` lists the requests it answered. ``onboard_reply`` and
-    ``call_reply`` are each a ``(status, json)`` reply, a list of replies answered in turn (the
-    last one repeats), or ``HANG``."""
+    ``call_reply`` are each a ``(status, json)`` reply (or ``(status, json, delay_s)``), a list
+    of replies answered in turn (the last one repeats), or ``HANG``."""
 
     HANG = HANG
 

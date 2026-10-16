@@ -1,9 +1,9 @@
 """LlamaIndex integration: a SAIHM-backed ``BaseRetriever`` for RAG over a corpus you own.
 
 Retrieval-augmented generation, but the knowledge base is yours: every chunk is sealed
-client-side by the bundled SAIHM Node sidecar (Python holds no key), portable across models
-*and* frameworks, and provably erasable (GDPR Art. 17) — erase a source document and it is
-crypto-shredded, not merely de-indexed.
+client-side by the bundled SAIHM Node sidecar (with the key in a key file, Python never reads
+it), portable across models *and* frameworks, and provably erasable (GDPR Art. 17). Erasing a
+source document crypto-shreds it.
 
     from saihm_adapters import SaihmRetriever
     from llama_index.core.schema import TextNode
