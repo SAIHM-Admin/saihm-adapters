@@ -24,8 +24,10 @@ model, or a different company's product.
 bundled Node.js sidecar, before it goes anywhere, and SAIHM stores only that ciphertext.
 Nobody else can read your memories — not the storage, not SAIHM. With your key in a key
 file, Python never reads the key. With the default free-join key file, the client also keeps
-a local copy of your memories, readable only by your user account, so recall is fast; set
-`SAIHM_RECALL_CACHE=0` to keep none ([details](#how-it-works)).
+a local copy of your memories, not encrypted and readable only by your user account, so
+recall is fast. Setting `SAIHM_RECALL_CACHE=0` stops new copies. A copy written earlier
+stays, and `forget` no longer updates it, so delete `~/.saihm/recall.*.json` to remove it
+([details](#how-it-works)).
 
 ## Start free — one command
 
@@ -309,15 +311,16 @@ copy was deleted somewhere.
 - **Fast recall on your device.** With the default free-join key file, the client keeps a
   local copy of your memories, so a recall fetches only what is new. Each recall adds every
   memory it fetches to that copy, whatever its query, and `forget` recalls before and after
-  it erases. That copy is not encrypted, only your user account can read it, and
-  `forget` removes a memory from it too. A second device that uses the same key file keeps
-  a forgotten memory in its own copy until its next recall. A backup of `~/.saihm` holds that copy as well, and
-  erasure cannot reach a backup.
-- **Everything encrypted at rest, if you prefer.** Set `SAIHM_RECALL_CACHE=0` and the
-  client keeps no local copy, so every memory SAIHM holds at rest is ciphertext. The
-  trade-off is speed: each recall then fetches all your memories again. With a key file
-  in any other place, the cache is off, and the first recall prints a one-time note
-  about it on stderr; `SAIHM_RECALL_CACHE=0` silences that note too.
+  it erases. That copy is not encrypted, only your user account can read it, and while the
+  cache is on, `forget` removes a memory from it too. A second device that uses the same key
+  file keeps a forgotten memory in its own copy until its next recall. A backup of `~/.saihm`
+  holds that copy as well, and erasure cannot reach a backup.
+- **Everything encrypted at rest, if you prefer.** Setting `SAIHM_RECALL_CACHE=0` stops new
+  copies. A copy written earlier stays, and `forget` no longer updates it, so delete
+  `~/.saihm/recall.*.json` to remove it. The trade-off is speed: each recall then fetches all
+  your memories again. With a key file in any other place, the cache is off, and the first
+  recall prints a one-time note about it on stderr; `SAIHM_RECALL_CACHE=0` silences that
+  note too.
 
 ## Configuration
 
@@ -329,7 +332,7 @@ Most apps need only `SAIHM_ENDPOINT_URL`. These are the main settings:
 | `SAIHM_MASTER_SECRET_FILE` | Your key file, when it is not at `~/.saihm/free-identity.key` |
 | `SAIHM_IDENTITY`, `SAIHM_IDENTITY_PASSPHRASE` | An exported identity, for servers and CI |
 | `SAIHM_TIER`, `SAIHM_PAYMENT_METHOD` | Your plan and its payment rail, on a paid plan |
-| `SAIHM_RECALL_CACHE` | `0` keeps no local copy of your memories |
+| `SAIHM_RECALL_CACHE` | `0` stops new local copies of your memories; delete `~/.saihm/recall.*.json` to remove an earlier one |
 | `SAIHM_SIDECAR_DIR` | A sidecar you provisioned yourself, for air-gapped or CI installs |
 | `SAIHM_SKIP_BOOTSTRAP` | `1` forbids the first-run network install |
 | `SAIHM_BOOTSTRAP_TIMEOUT` | Seconds the first-run install may take (default 600) |

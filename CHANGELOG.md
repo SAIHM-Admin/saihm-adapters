@@ -63,7 +63,8 @@
 - The previous sidecar stays in `~/.cache/saihm-adapters/0.1.2-*` (under `$XDG_CACHE_HOME` if
   set). Nothing loads it; delete it so security scans of the cache see only the current one.
 - If pip reports conflicting dependencies with an `mcp` older than 1.21.1, upgrade `mcp` to
-  1.21.1 or later, or pin `saihm-adapters==0.1.1`.
+  1.21.1 or later. Until you can, `saihm-adapters==0.1.1` still installs; it lacks the fixes
+  above.
 
 ## 0.1.2
 

@@ -151,6 +151,21 @@ def _stand_in(root, package, init="", dist=None, version=None):
         (info / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {dist}\nVersion: {version}\n", encoding="utf-8")
 
 
+def test_listing_floors_are_the_extras_floors():
+    # Each adapter is listed from the lowest version its extra allows. Read that floor from the
+    # installed metadata, so the listing, this test's table and pip all agree.
+    from packaging.requirements import Requirement
+
+    requires = [Requirement(r) for r in importlib.metadata.requires("saihm-adapters") or []]
+    for name, (_, extra, dist, floor) in saihm_adapters._LAZY.items():
+        lows = [Version(s.version) for r in requires
+                if r.name == dist and r.marker is not None and r.marker.evaluate({"extra": extra})
+                for s in r.specifier if s.operator == ">="]
+        assert len(lows) == 1, (name, extra, lows)
+        assert lows[0] == Version(".".join(map(str, floor))), (name, extra, lows[0], floor)
+        assert _FLOORS[name] == (dist, str(lows[0])), (name, _FLOORS[name], lows[0])
+
+
 def test_import_runs_no_framework_code(tmp_path):
     # Listing the adapters reads metadata only: no framework module is imported with the core.
     result = _probe(tmp_path)
@@ -163,6 +178,22 @@ def test_framework_below_its_extra_floor_is_not_listed(tmp_path):
     _stand_in(tmp_path / "site", "crewai", dist="crewai", version="0.203.2")
     result = _probe(tmp_path, tmp_path / "site")
     assert "SaihmStorageBackend" not in result["listed"] and "SaihmStorageBackend" not in result["star"]
+    assert result["loaded"] == []
+
+
+@pytest.mark.parametrize(
+    "name,dist,version",
+    [("SaihmChatMessageHistory", "langchain-core", "0.2.43"), ("SaihmStore", "langgraph", "1.1.10"),
+     ("SaihmRetriever", "llama-index-core", "0.13.6"), ("SaihmStorageBackend", "crewai", "1.14.9")],
+)
+def test_each_framework_just_below_its_floor_is_not_listed(tmp_path, name, dist, version):
+    # Installed metadata only (no package folder), ahead of any real install on sys.path, so
+    # the other frameworks still import for help() and the star import.
+    info = tmp_path / "site" / f"{dist.replace('-', '_')}-{version}.dist-info"
+    info.mkdir(parents=True)
+    (info / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {dist}\nVersion: {version}\n", encoding="utf-8")
+    result = _probe(tmp_path, tmp_path / "site")
+    assert name not in result["listed"] and name not in result["star"]
     assert result["loaded"] == []
 
 
@@ -194,12 +225,24 @@ def test_a_framework_that_fails_on_import_cannot_break_the_core_import(tmp_path,
     assert out.stdout.strip() == "[]"
 
 
-def test_unreadable_framework_metadata_cannot_break_the_core_import(tmp_path):
-    # A broken install whose METADATA is not UTF-8 makes importlib.metadata raise
-    # UnicodeDecodeError. The core import still works, and the adapter is not listed.
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"METADATA": b"Metadata-Version: 2.1\nName: crewai\nVersion: 1.15.0\nSummary: \xff\xfe\n"},
+        {"METADATA": b"Metadata-Version: 2.1\nName: crewai\n"},
+        {"RECORD": b""},
+    ],
+    ids=["not-utf-8", "no-version", "record-only"],
+)
+def test_unreadable_framework_metadata_cannot_break_the_core_import(tmp_path, files):
+    # A broken install: METADATA that is not UTF-8 makes importlib.metadata raise
+    # UnicodeDecodeError; METADATA without a Version, or no METADATA at all, makes
+    # importlib.metadata.version() return None. The core import still works, and the adapter
+    # is not listed.
     info = tmp_path / "site" / "crewai-1.15.0.dist-info"
     info.mkdir(parents=True)
-    (info / "METADATA").write_bytes(b"Metadata-Version: 2.1\nName: crewai\nVersion: 1.15.0\nSummary: \xff\xfe\n")
+    for file, data in files.items():
+        (info / file).write_bytes(data)
     result = _probe(tmp_path, tmp_path / "site")
     assert "SaihmStorageBackend" not in result["listed"]
     assert result["loaded"] == []
