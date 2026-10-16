@@ -11,8 +11,8 @@ each framework adapter is an optional extra, imported lazily, so you install onl
     pip install "saihm-adapters[crewai]"          # + CrewAI storage backend
     pip install "saihm-adapters[autogen]"         # + AutoGen memory
 
-Every cell is sealed by a bundled Node sidecar — Python holds no key — portable across models
-and frameworks, and provably erasable (GDPR Art. 17)::
+Every cell is sealed by a bundled Node sidecar (with the key in a key file, Python never reads
+it), portable across models and frameworks, and provably erasable (GDPR Art. 17)::
 
     from saihm_adapters import SaihmMemoryClient              # core, any app
     from saihm_adapters import SaihmChatMessageHistory        # LangChain    [langchain]
@@ -29,28 +29,37 @@ never collide on one name.
 from __future__ import annotations
 
 import importlib
+import importlib.util
 
 from .client import Memory, SaihmMemoryClient, SaihmNoIdentityError, SaihmStartupError, SaihmTimeout
 
+# Unambiguous adapter classes exposed at the top level: name -> (submodule, extra, framework).
+_LAZY = {
+    "SaihmChatMessageHistory": ("langchain_memory", "langchain", "langchain_core"),
+    "SaihmStore": ("langgraph_store", "langgraph", "langgraph"),
+    "SaihmRetriever": ("rag_memory", "rag", "llama_index.core"),
+    "SaihmStorageBackend": ("crewai_storage", "crewai", "crewai"),
+}
+
+
+def _installed(module: str) -> bool:
+    """Whether a framework can be imported, looked up without importing it."""
+    try:
+        return importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError):  # a dotted name whose parent package is missing
+        return False
+
+
+# An adapter is listed only when its framework is installed, so help(saihm_adapters) and
+# ``from saihm_adapters import *`` work with any set of extras. Asking for a missing one by name
+# still raises an ImportError that names the extra to install.
 __all__ = [
     "SaihmMemoryClient",
     "Memory",
     "SaihmTimeout",
     "SaihmStartupError",
     "SaihmNoIdentityError",
-    "SaihmChatMessageHistory",
-    "SaihmStore",
-    "SaihmRetriever",
-    "SaihmStorageBackend",
-]
-
-# Unambiguous adapter classes exposed at the top level: name -> (submodule, extra).
-_LAZY = {
-    "SaihmChatMessageHistory": ("langchain_memory", "langchain"),
-    "SaihmStore": ("langgraph_store", "langgraph"),
-    "SaihmRetriever": ("rag_memory", "rag"),
-    "SaihmStorageBackend": ("crewai_storage", "crewai"),
-}
+] + [name for name, (_, _, framework) in _LAZY.items() if _installed(framework)]
 
 # Names carried by more than one framework submodule as different classes. Importing them from
 # the top level would be a silent collision, so it is refused with a directive to the submodule.
@@ -64,7 +73,7 @@ _AMBIGUOUS = {
 
 def __getattr__(name):  # PEP 562 — lazy adapter imports
     if name in _LAZY:
-        module, extra = _LAZY[name]
+        module, extra, _ = _LAZY[name]
         try:
             mod = importlib.import_module(f"{__name__}.{module}")
         except ModuleNotFoundError as exc:

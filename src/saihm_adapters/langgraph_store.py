@@ -64,7 +64,7 @@ class SaihmStore(BaseStore):
     The store manages only the items it wrote (cells carrying the ``_saihm_lg`` envelope);
     other cells in the same owned store — e.g. facts written from the LangChain, CrewAI, or
     AutoGen adapters — are left untouched. Pass a ``client`` to reuse a session, or omit it for
-    a local blind sandbox (paid live endpoint via env — see
+    a local blind sandbox (live endpoint via env; see
     :class:`~saihm_adapters.client.SaihmMemoryClient`).
     """
 

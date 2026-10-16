@@ -59,7 +59,7 @@ class SaihmStorageBackend:
     Each CrewAI ``MemoryRecord`` becomes one encrypted SAIHM cell. The backend manages only the
     records it wrote (typed CrewAI records); other cells in the same owned store — e.g. facts
     written from the LangChain or AutoGen adapters — are left untouched. Pass a ``client`` to
-    reuse a session, or omit it for a local blind sandbox (paid live endpoint via env — see
+    reuse a session, or omit it for a local blind sandbox (live endpoint via env; see
     :class:`~saihm_adapters.client.SaihmMemoryClient`).
     """
 

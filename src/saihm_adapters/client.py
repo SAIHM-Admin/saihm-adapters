@@ -159,13 +159,14 @@ def _describe(exc: BaseException) -> str:
 
 def _call_failed(res) -> bool:
     """Whether a tool result carries the MCP error flag. mcp 1.x names it ``isError``; mcp 2.x
-    names it ``is_error`` and has no ``isError`` attribute. A result with neither is refused, so
-    a future rename fails loudly instead of passing a refused call off as a success."""
-    for name in ("is_error", "isError"):
-        flag = getattr(res, name, None)
-        if flag is not None:
-            return bool(flag)
-    raise RuntimeError(f"unrecognized MCP tool result ({type(res).__name__}): it has no error flag")
+    names it ``is_error`` and has no ``isError`` attribute. Either name set to true marks a
+    refusal, so an extra field under the other name can never hide one. A result with neither
+    is refused, so a future rename fails loudly instead of passing a refused call off as a
+    success."""
+    flags = [getattr(res, name, None) for name in ("is_error", "isError")]
+    if all(flag is None for flag in flags):
+        raise RuntimeError(f"unrecognized MCP tool result ({type(res).__name__}): it has no error flag")
+    return any(bool(flag) for flag in flags if flag is not None)
 
 
 class _StderrTee:

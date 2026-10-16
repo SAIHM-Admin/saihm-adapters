@@ -125,8 +125,8 @@ class SaihmMemory(Memory, Component[SaihmMemoryConfig]):
     cell is read as opaque ``text/plain``, so memorized untrusted text can't forge typed
     metadata. :meth:`clear` is scoped: it crypto-shreds only what this instance added, even when
     several share one client — so it never wipes the rest of your memory by surprise. Pass a
-    ``client`` to reuse a session, or omit it for a local blind sandbox (paid live endpoint via
-    env — see :class:`~saihm_adapters.client.SaihmMemoryClient`).
+    ``client`` to reuse a session, or omit it for a local blind sandbox (live endpoint via
+    env; see :class:`~saihm_adapters.client.SaihmMemoryClient`).
     """
 
     component_type = "memory"

@@ -38,6 +38,23 @@ def test_result_without_an_error_flag_fails_loudly():
         _call_failed(Unknown())
 
 
+def test_either_error_flag_marks_a_refusal():
+    # mcp 1.x results accept extra fields, so a result can carry both names. A false value under
+    # one name must never hide a true value under the other.
+    class Both:
+        content = []
+        is_error = False
+        isError = True
+
+    class OneUnset:
+        content = []
+        is_error = None
+        isError = False
+
+    assert _call_failed(Both()) is True
+    assert _call_failed(OneUnset()) is False
+
+
 @pytest.fixture
 def refusing_client(fake_endpoint, clean_identity_env, make_key, tmp_path):
     """A live client whose every memory call the endpoint refuses with a hard quota cap."""
@@ -152,6 +169,18 @@ def test_challenge_refused_twice_does_not_block_start_up(code, fake_endpoint, cl
         assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 2  # one more, then go ahead
         with pytest.raises(RuntimeError, match=code):
             c.remember("x")
+
+
+@pytest.mark.parametrize("code", CHALLENGE_CODES)
+def test_hard_refusal_on_the_second_sign_in_still_raises(code, fake_endpoint, clean_identity_env, make_key, tmp_path):
+    # The one more sign-in is a real check: refused for a reason about the identity, start-up
+    # stops with the typed error, after exactly two sign-ins.
+    make_key(tmp_path / ".saihm" / "free-identity.key")
+    fake_endpoint.onboard_reply = [_refusal(code), _refusal("no_free_entitlement")]
+    with pytest.raises(SaihmNoIdentityError) as exc:
+        SaihmMemoryClient(env=_live_env(tmp_path, fake_endpoint.url), timeout=60)
+    assert (exc.value.kind, exc.value.reason) == ("identity-not-active", "no_free_entitlement")
+    assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 2
 
 
 def test_late_challenge_refusal_shares_the_20_s_limit(fake_endpoint, clean_identity_env, make_key, tmp_path):

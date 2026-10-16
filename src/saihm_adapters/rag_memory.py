@@ -77,7 +77,7 @@ class SaihmRetriever(BaseRetriever):
     Manages only the chunks it wrote (cells carrying the ``_saihm_rag`` envelope); other cells in
     the same owned store — e.g. facts written from the LangChain, CrewAI, AutoGen, or LangGraph
     adapters — are left untouched. Pass a ``client`` to reuse a session, or omit it for a local
-    blind sandbox (paid live endpoint via env — see
+    blind sandbox (live endpoint via env; see
     :class:`~saihm_adapters.client.SaihmMemoryClient`).
     """
 

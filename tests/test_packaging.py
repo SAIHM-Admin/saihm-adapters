@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.resources
 import importlib.util
+import pydoc
 
 import pytest
 
@@ -33,10 +34,27 @@ def test_core_is_importable_without_any_framework():
 
 def test_all_lists_core_and_unambiguous_adapters_only():
     assert "SaihmMemoryClient" in saihm_adapters.__all__
-    for name in ("SaihmChatMessageHistory", "SaihmStore", "SaihmRetriever", "SaihmStorageBackend"):
-        assert name in saihm_adapters.__all__
+    # An adapter is listed exactly when its framework is installed.
+    for name, (_, _, framework) in saihm_adapters._LAZY.items():
+        assert (name in saihm_adapters.__all__) == _installed(framework), name
+        assert (name in dir(saihm_adapters)) == _installed(framework), name
     # The ambiguous name is deliberately NOT exported at the top level.
     assert "SaihmMemory" not in saihm_adapters.__all__
+
+
+def test_help_renders_with_the_installed_extras():
+    # pydoc walks __all__; a listed adapter whose framework is missing used to replace the whole
+    # page with an ImportError.
+    text = pydoc.render_doc(saihm_adapters, renderer=pydoc.plaintext)
+    assert "SaihmMemoryClient" in text and "SaihmTimeout" in text
+
+
+def test_star_import_works_with_the_installed_extras():
+    names = {}
+    exec("from saihm_adapters import *", names)
+    assert "SaihmMemoryClient" in names
+    for name, (_, _, framework) in saihm_adapters._LAZY.items():
+        assert (name in names) == _installed(framework), name
 
 
 def test_ambiguous_name_refused_with_directive():
@@ -85,6 +103,7 @@ def test_missing_extra_gives_directive_importerror(attr, extra, dep):
     # Only meaningful when the framework is absent; in the full [dev] env it is installed.
     if _installed(dep):
         pytest.skip(f"{dep} is installed; missing-extra path not exercised in this env")
+    assert attr not in saihm_adapters.__all__ and attr not in dir(saihm_adapters)
     with pytest.raises(ImportError) as exc:
         getattr(saihm_adapters, attr)
     assert extra in str(exc.value)

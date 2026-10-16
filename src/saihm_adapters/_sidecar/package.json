@@ -3,7 +3,7 @@
   "version": "0.1.3",
   "private": true,
   "type": "module",
-  "description": "SAIHM Node MCP sidecar for the Python saihm-adapters package: owned, portable, provably-erasable agent memory. Python holds no keys; the sidecar seals every cell client-side.",
+  "description": "SAIHM Node MCP sidecar for the Python saihm-adapters package: owned, portable, provably-erasable agent memory. With the key in a key file, Python never reads it; the sidecar seals every cell client-side.",
   "scripts": {
     "start": "node server.mjs"
   },

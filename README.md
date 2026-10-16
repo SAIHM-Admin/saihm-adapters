@@ -142,7 +142,7 @@ Each adapter implements the framework's own memory interface and accepts a share
 | LlamaIndex | Chat memory, and a retriever for RAG | `[llamaindex]` and `[rag]` |
 | AutoGen | A memory your agent owns | `[autogen]` |
 
-**LangGraph** — compile your graph with the store; every node that takes `store` reads and
+**LangGraph.** Compile your graph with the store; every node that takes `store` reads and
 writes SAIHM:
 
 ```python
@@ -180,7 +180,7 @@ app = graph.compile(store=SaihmStore())
 print(app.invoke({"user": "ada", "answer": ""}))  # {'user': 'ada', 'answer': 'likes tea'}
 ```
 
-**CrewAI (1.15+)** — register the backend once at start-up, then ask for SAIHM storage:
+**CrewAI (1.15+).** Register the backend once at start-up, then ask for SAIHM storage:
 
 ```python
 from crewai import Memory
@@ -299,8 +299,8 @@ Python drives a bundled **Node.js sidecar** over MCP stdio, and the sidecar runs
 SAIHM client as `@saihm/mcp-server-pro`. Everything is encrypted inside that sidecar, on
 your machine, before it is sent, and decrypted there after it comes back. What SAIHM
 stores is unreadable ciphertext, and no key that opens it. To erase something, its key is
-destroyed — which is why erasure is immediate and final rather than a promise that a copy
-was deleted somewhere.
+destroyed, which is why erasure at SAIHM is immediate and final rather than a promise that a
+copy was deleted somewhere.
 
 - **Post-quantum by design.** ML-DSA-65 signs every memory.
 - **Non-custodial.** The hosted service at <https://saihm.net> provides the durable
@@ -311,7 +311,7 @@ was deleted somewhere.
   local copy of the memories this device has written or opened, so a recall fetches only
   what is new. That copy is not encrypted, only your user account can read it, and
   `forget` removes a memory from it too. A second device that uses the same key file keeps
-  its own copy until its next recall. A backup of `~/.saihm` holds that copy as well, and
+  a forgotten memory in its own copy until its next recall. A backup of `~/.saihm` holds that copy as well, and
   erasure cannot reach a backup.
 - **Everything encrypted at rest, if you prefer.** Set `SAIHM_RECALL_CACHE=0` and the
   client keeps no local copy, so every memory SAIHM holds at rest is ciphertext. The
@@ -329,7 +329,7 @@ Most apps need only `SAIHM_ENDPOINT_URL`. These are the main settings:
 | `SAIHM_MASTER_SECRET_FILE` | Your key file, when it is not at `~/.saihm/free-identity.key` |
 | `SAIHM_IDENTITY`, `SAIHM_IDENTITY_PASSPHRASE` | An exported identity, for servers and CI |
 | `SAIHM_TIER`, `SAIHM_PAYMENT_METHOD` | Your plan and its payment rail, on a paid plan |
-| `SAIHM_RECALL_CACHE` | `0` keeps no local copy of recalled memories |
+| `SAIHM_RECALL_CACHE` | `0` keeps no local copy of your memories |
 | `SAIHM_SIDECAR_DIR` | A sidecar you provisioned yourself, for air-gapped or CI installs |
 | `SAIHM_SKIP_BOOTSTRAP` | `1` forbids the first-run network install |
 | `SAIHM_BOOTSTRAP_TIMEOUT` | Seconds the first-run install may take (default 600) |

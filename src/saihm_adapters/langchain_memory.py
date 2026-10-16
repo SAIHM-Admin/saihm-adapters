@@ -48,7 +48,7 @@ class SaihmChatMessageHistory(BaseChatMessageHistory):
     content, so memorized untrusted text can't forge a privileged turn. :meth:`clear` is also
     scoped: it only crypto-shreds the messages *this* history added, even when several share one
     client — so it never wipes the rest of your memory by surprise. Pass a ``client`` to reuse a
-    session, or omit it to spawn a local blind sandbox (paid live endpoint via env — see
+    session, or omit it to spawn a local blind sandbox (live endpoint via env; see
     :class:`~saihm_adapters.client.SaihmMemoryClient`).
     """
 
