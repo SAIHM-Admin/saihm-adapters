@@ -42,9 +42,8 @@
   [pricing page](https://saihm.net/pricing)), troubleshooting, how it works, configuration
   and support. New: a runnable LangGraph graph (`graph.compile(store=SaihmStore())`), the
   CrewAI registration (`set_memory_storage_factory`), and a table of the main settings. The
-  local-copy note now says that the copy holds the memories this device has written and every
-  memory a recall fetches, whatever its query, and that a second device keeps a forgotten
-  memory until its next recall.
+  local-copy note now says that each recall adds every memory it fetches to the copy, whatever
+  its query, and that a second device keeps a forgotten memory until its next recall.
 - **Tests** run the full client against `mcp` 1.x and 2.x, including the refusal paths and the
   start-up time limit, with a local stand-in for the hosted endpoint. A timed-out call is
   tested to raise `SaihmTimeout`.

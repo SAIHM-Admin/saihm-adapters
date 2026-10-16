@@ -289,7 +289,7 @@ the card link.
 | What you see | What to do |
 |---|---|
 | `SaihmNoIdentityError` with `kind == "no-identity"` | This machine has no identity: run free-join, or set `SAIHM_MASTER_SECRET_FILE` to your key file |
-| `SaihmNoIdentityError` with `kind == "identity-not-active"` | SAIHM refused the sign-in, and `reason` holds its code. With `no_free_entitlement`, the free-join sign-in was not approved: run free-join again (it reuses your key) and approve the new code. With another code, check `SAIHM_TIER` and `SAIHM_PAYMENT_METHOD` against your plan |
+| `SaihmNoIdentityError` with `kind == "identity-not-active"` | SAIHM refused the sign-in, and `reason` holds its code. With `no_free_entitlement`, the free-join sign-in was not approved: run free-join again (it reuses your key) and approve the new code. With another code, check `SAIHM_TIER` and `SAIHM_PAYMENT_METHOD` against your plan. |
 | `SaihmStartupError` with `kind == "node-missing"` | Install Node.js 20 or later, or pass `node="/full/path/to/node"` to the client |
 | `SaihmStartupError` with `kind == "install-failed"` or `"not-provisioned"` | The sidecar could not be installed: allow access to the npm registry (and unset `SAIHM_SKIP_BOOTSTRAP`), or provision the sidecar yourself and set `SAIHM_SIDECAR_DIR` |
 | A call raises `RuntimeError` with the service's reason | The service refused the call, for example because the free allowance is used up: see [What it costs](#what-it-costs) |
@@ -339,7 +339,7 @@ Most apps need only `SAIHM_ENDPOINT_URL`. These are the main settings:
 | `SAIHM_MASTER_SECRET_FILE` | Your key file, when it is not at `~/.saihm/free-identity.key` |
 | `SAIHM_IDENTITY`, `SAIHM_IDENTITY_PASSPHRASE` | An exported identity, for servers and CI |
 | `SAIHM_TIER`, `SAIHM_PAYMENT_METHOD` | Your plan and its payment rail, on a paid plan |
-| `SAIHM_RECALL_CACHE` | `0` stops new local copies of your memories in the app that sets it. To remove an earlier one, delete `~/.saihm/recall.*`, or `recall.*` in `SAIHM_HOME` if you set it; with `SAIHM_RECALL_CACHE_PATH`, delete that file and its `.lock` and `.tmp.*` files too |
+| `SAIHM_RECALL_CACHE` | `0` stops new local copies of your memories in the app that sets it. To remove an earlier one, delete `~/.saihm/recall.*`, or `recall.*` in `SAIHM_HOME` if you set it; with `SAIHM_RECALL_CACHE_PATH`, delete that file and its `.lock` and `.tmp.*` files too. |
 | `SAIHM_SIDECAR_DIR` | A sidecar you provisioned yourself, for air-gapped or CI installs |
 | `SAIHM_SKIP_BOOTSTRAP` | `1` forbids the first-run network install |
 | `SAIHM_BOOTSTRAP_TIMEOUT` | Seconds the first-run install may take (default 600) |

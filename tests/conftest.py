@@ -11,6 +11,8 @@ any framework — and the two frameworks that both name a class ``SaihmMemory`` 
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from saihm_adapters import SaihmMemoryClient
@@ -129,6 +131,15 @@ _IDENTITY_VARS = (
     "SAIHM_MASTER_SECRET_HEX", "SAIHM_HOME", "SAIHM_SELF_JOIN", "SAIHM_AUTH_HEADER",
     "SAIHM_TIER", "SAIHM_PAYMENT_METHOD", "SAIHM_ENDPOINT_URL", "SAIHM_RECALL_CACHE",
 )
+
+
+def pytest_configure(config):
+    """The suite runs offline only. Drop the live-mode and identity settings of the shell that
+    started it, so that no client here can reach a live store: with ``SAIHM_ENDPOINT_URL`` set,
+    the session client would be live, and ``_wipe`` would erase every memory of that identity.
+    A test that needs one of these settings sets it itself."""
+    for name in _IDENTITY_VARS:
+        os.environ.pop(name, None)
 
 
 @pytest.fixture
