@@ -27,9 +27,9 @@ file, Python never reads the key. With the default free-join key file, the clien
 a local copy of your memories, so recall is fast. That copy is not encrypted, and only your
 user account can read it. Setting `SAIHM_RECALL_CACHE=0` in every app that uses this key,
 MCP hosts included, stops new copies. A copy written earlier stays, and `forget` no longer
-updates it. To remove it, delete the `recall.*` files beside your key file
-(`~/.saihm/recall.*`, or in `SAIHM_HOME`; a `SAIHM_RECALL_CACHE_PATH` file too)
-([details](#how-it-works)).
+updates it. To remove it, delete `~/.saihm/recall.*`, or `recall.*` in `SAIHM_HOME` if you
+set it; with `SAIHM_RECALL_CACHE_PATH`, delete that file and its `.lock` and `.tmp.*` files
+too ([details](#how-it-works)).
 
 ## Start free — one command
 
@@ -315,18 +315,19 @@ copy was deleted somewhere.
   memory it fetches to that copy, whatever its query, and `forget` recalls before and after
   it erases. That copy is not encrypted, only your user account can read it, and while the
   cache is on, `forget` removes a memory from it too. A second device that uses the same key
-  file keeps a forgotten memory in its own copy until its next recall. A backup of your key
-  file's folder (`~/.saihm`, or `SAIHM_HOME`) includes that copy as well, and erasure cannot
-  reach a backup.
+  file keeps a forgotten memory in its own copy until its next recall. A backup of the folder
+  that holds that copy (`~/.saihm` or `SAIHM_HOME`, or that of a `SAIHM_RECALL_CACHE_PATH`
+  file) includes it as well, and erasure cannot reach a backup.
 - **Everything encrypted at rest, if you prefer.** Setting `SAIHM_RECALL_CACHE=0` stops new
   copies, and each recall then fetches all your memories again, which is slower. Set it in
   every app that uses the same key, MCP hosts included, because an app without it writes the
   copy again. A copy written earlier stays, and `forget` no longer updates it. To remove it,
-  delete the `recall.*` files beside your key file (`~/.saihm/recall.*`, or in `SAIHM_HOME`; a
-  `SAIHM_RECALL_CACHE_PATH` file too). With a key file other than the default one, set by
-  `SAIHM_MASTER_SECRET_FILE`, or with an exported identity, the cache is off unless
-  `SAIHM_RECALL_CACHE_PATH` names a file for it. With the cache off, the first recall prints a
-  one-time note about it on stderr; `SAIHM_RECALL_CACHE=0` silences that note too.
+  delete `~/.saihm/recall.*`, or `recall.*` in `SAIHM_HOME` if you set it; with
+  `SAIHM_RECALL_CACHE_PATH`, delete that file and its `.lock` and `.tmp.*` files too. If
+  `SAIHM_MASTER_SECRET_FILE` names a key file other than the default one, or you use an
+  exported identity, the cache is off unless `SAIHM_RECALL_CACHE_PATH` names a file for it.
+  The first recall then prints a one-time note about it on stderr; `SAIHM_RECALL_CACHE=0`
+  silences that note too.
 
 ## Configuration
 
@@ -338,7 +339,7 @@ Most apps need only `SAIHM_ENDPOINT_URL`. These are the main settings:
 | `SAIHM_MASTER_SECRET_FILE` | Your key file, when it is not at `~/.saihm/free-identity.key` |
 | `SAIHM_IDENTITY`, `SAIHM_IDENTITY_PASSPHRASE` | An exported identity, for servers and CI |
 | `SAIHM_TIER`, `SAIHM_PAYMENT_METHOD` | Your plan and its payment rail, on a paid plan |
-| `SAIHM_RECALL_CACHE` | `0` stops new local copies of your memories in the app that sets it; delete the `recall.*` files beside your key file (`~/.saihm/recall.*`, or in `SAIHM_HOME`; a `SAIHM_RECALL_CACHE_PATH` file too) to remove an earlier one |
+| `SAIHM_RECALL_CACHE` | `0` stops new local copies of your memories in the app that sets it. To remove an earlier one, delete `~/.saihm/recall.*`, or `recall.*` in `SAIHM_HOME` if you set it; with `SAIHM_RECALL_CACHE_PATH`, delete that file and its `.lock` and `.tmp.*` files too |
 | `SAIHM_SIDECAR_DIR` | A sidecar you provisioned yourself, for air-gapped or CI installs |
 | `SAIHM_SKIP_BOOTSTRAP` | `1` forbids the first-run network install |
 | `SAIHM_BOOTSTRAP_TIMEOUT` | Seconds the first-run install may take (default 600) |

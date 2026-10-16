@@ -42,9 +42,9 @@
   [pricing page](https://saihm.net/pricing)), troubleshooting, how it works, configuration
   and support. New: a runnable LangGraph graph (`graph.compile(store=SaihmStore())`), the
   CrewAI registration (`set_memory_storage_factory`), and a table of the main settings. The
-  local-copy note now says the copy is not encrypted and holds your memories, those this
-  device has written and every memory a recall fetches, whatever its query, and that a second
-  device keeps a forgotten memory until its next recall.
+  local-copy note now says that the copy holds the memories this device has written and every
+  memory a recall fetches, whatever its query, and that a second device keeps a forgotten
+  memory until its next recall.
 - **Tests** run the full client against `mcp` 1.x and 2.x, including the refusal paths and the
   start-up time limit, with a local stand-in for the hosted endpoint. A timed-out call is
   tested to raise `SaihmTimeout`.
@@ -63,10 +63,12 @@
 - The previous sidecar stays in `~/.cache/saihm-adapters/0.1.2-*` (under `$XDG_CACHE_HOME` if
   set). Nothing loads it; delete it so security scans of the cache see only the current one.
 - In live mode with the default free-join key file, 0.1.2 kept a local copy of your memories
-  beside your key file, as 0.1.3 does, so recall is fast. That copy is not encrypted, and only
-  your user account can read it. Setting `SAIHM_RECALL_CACHE=0` stops new copies and leaves
-  the existing one in place. To remove it, delete the `recall.*` files beside your key file
-  (`~/.saihm/recall.*`, or in `SAIHM_HOME`; a `SAIHM_RECALL_CACHE_PATH` file too).
+  beside your key file, or in the file that `SAIHM_RECALL_CACHE_PATH` names, as 0.1.3 does, so
+  recall is fast. That copy is not encrypted, and only your user account can read it. Setting
+  `SAIHM_RECALL_CACHE=0` in every app that uses this key, MCP hosts included, stops new copies
+  and leaves the existing one in place. To remove it, delete `~/.saihm/recall.*`, or
+  `recall.*` in `SAIHM_HOME` if you set it; with `SAIHM_RECALL_CACHE_PATH`, delete that file
+  and its `.lock` and `.tmp.*` files too.
 - If pip reports conflicting dependencies with an `mcp` older than 1.21.1, upgrade `mcp` to
   1.21.1 or later. Until you can, `saihm-adapters==0.1.1` still installs. It lacks the fixes
   above, so move to 0.1.3 when you upgrade `mcp`.
