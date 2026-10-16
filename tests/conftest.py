@@ -44,14 +44,21 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
+# A reply that never comes: the request waits until the test ends.
+HANG = "hang"
+
+
 class _EndpointHandler(BaseHTTPRequestHandler):
     def _reply(self, status, body):
         data = json.dumps(body).encode()
-        self.send_response(status)
-        self.send_header("content-type", "application/json")
-        self.send_header("content-length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.send_response(status)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the client gave up on this request
 
     def do_GET(self):
         ep = self.server.endpoint
@@ -64,27 +71,43 @@ class _EndpointHandler(BaseHTTPRequestHandler):
         ep = self.server.endpoint
         self.rfile.read(int(self.headers.get("content-length") or 0))
         ep.seen.append(("POST", self.path))
-        self._reply(*(ep.onboard_reply if self.path == "/api/onboard" else ep.call_reply))
+        reply = ep.next_reply(ep.onboard_reply if self.path == "/api/onboard" else ep.call_reply)
+        if reply == HANG:
+            ep.released.wait(120)
+            reply = (503, {"error": "unavailable"})
+        self._reply(*reply)
 
     def log_message(self, *args):  # keep the test output clean
         pass
 
 
 class FakeEndpoint:
-    """``url`` is the endpoint; ``onboard_reply`` / ``call_reply`` are ``(status, json)``;
-    ``seen`` lists the requests it answered."""
+    """``url`` is the endpoint; ``seen`` lists the requests it answered. ``onboard_reply`` and
+    ``call_reply`` are each a ``(status, json)`` reply, a list of replies answered in turn (the
+    last one repeats), or ``HANG``."""
+
+    HANG = HANG
 
     def __init__(self):
         self.seen = []
         self.onboard_reply = (500, {"error": "unset"})
         self.call_reply = (500, {"error": "unset"})
+        self.released = threading.Event()
+        self._lock = threading.Lock()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), _EndpointHandler)
         self._server.daemon_threads = True
         self._server.endpoint = self
         self.url = f"http://127.0.0.1:{self._server.server_address[1]}/mcp"
         threading.Thread(target=self._server.serve_forever, daemon=True).start()
 
+    def next_reply(self, reply):
+        with self._lock:
+            if isinstance(reply, list):
+                return reply.pop(0) if len(reply) > 1 else reply[0]
+            return reply
+
     def close(self):
+        self.released.set()
         self._server.shutdown()
         self._server.server_close()
 

@@ -27,6 +27,10 @@ const BOOT_MARKER = 'saihm-sidecar-error ';
 const NO_IDENTITY = /^No SAIHM (memory yet on this device|identity is configured)/;
 // How long start-up waits to learn whether a live identity is active before going ahead anyway.
 const IDENTITY_CHECK_MS = 20_000;
+// Sign-in refusals about the one-time challenge. The service lost, expired or already used it
+// (for example, it restarted between the two sign-in steps), which says nothing about the
+// identity. A fresh sign-in clears them, so start-up tries once more and never stops on them.
+const CHALLENGE_REASONS = new Set(['unknown_nonce', 'nonce_expired', 'nonce_replay']);
 
 class BootError extends Error {
   constructor(kind, message, reason) {
@@ -36,22 +40,36 @@ class BootError extends Error {
   }
 }
 
-// Live mode: ask the service once whether this identity is active before reporting ready. A key
-// that free-join saved before its sign-in was finished is refused at sign-in with 401
+// The reason code of a sign-in refusal (401 verification_failed), '' when it names none, or null
+// when the error is not a sign-in refusal.
+function refusalReason(e) {
+  if (e?.status !== 401 || e?.code !== 'verification_failed') return null;
+  return /\(verification_failed: ([a-z0-9_]+)\)/.exec(String(e?.message ?? ''))?.[1] ?? '';
+}
+
+// Live mode: ask the service whether this identity is active before reporting ready. A key that
+// free-join saved before its sign-in was finished is refused at sign-in with 401
 // verification_failed; report that as an identity that is not active, so the caller gets a typed
-// error at start-up instead of a client that fails every call. Anything else (no network, a
-// timeout, a server error, a used-up allowance) does not stop start-up: the calls report it.
+// error at start-up instead of a client that fails every call. A refusal about the challenge
+// gets one more sign-in. Anything else (no network, a timeout, a server error, a used-up
+// allowance, or a challenge refused twice) does not stop start-up: the calls report it.
 async function checkIdentityActive(client) {
-  const probe = client.status();
-  probe.catch(() => {}); // after the time limit below, a late failure is the calls' to report
   let timer;
   const timeUp = new Promise((resolve) => { timer = setTimeout(resolve, IDENTITY_CHECK_MS); });
   try {
-    await Promise.race([probe, timeUp]);
-  } catch (e) {
-    if (e?.status === 401 && e?.code === 'verification_failed') {
-      const reason = /\(verification_failed: ([a-z0-9_]+)\)/.exec(String(e?.message ?? ''))?.[1] ?? '';
-      throw new BootError('identity-not-active', String(e?.message ?? e), reason);
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const probe = client.status();
+      probe.catch(() => {}); // after the time limit below, a late failure is the calls' to report
+      try {
+        await Promise.race([probe, timeUp]);
+        return;
+      } catch (e) {
+        const reason = refusalReason(e);
+        if (reason === null) return;
+        if (!CHALLENGE_REASONS.has(reason)) {
+          throw new BootError('identity-not-active', String(e?.message ?? e), reason);
+        }
+      }
     }
   } finally {
     clearTimeout(timer);

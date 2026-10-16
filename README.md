@@ -4,6 +4,13 @@
 sessions, across models, across frameworks. One store backs LangChain, LangGraph,
 LlamaIndex, CrewAI and AutoGen, and you can erase any memory for good.
 
+[![PyPI version](https://img.shields.io/pypi/v/saihm-adapters.svg)](https://pypi.org/project/saihm-adapters/)
+[![license](https://img.shields.io/pypi/l/saihm-adapters.svg)](https://github.com/SAIHM-Admin/saihm-adapters/blob/main/LICENSE)
+[![Star on GitHub](https://img.shields.io/badge/GitHub-Star-181717?logo=github&logoColor=white)](https://github.com/SAIHM-Admin/saihm-adapters)
+[![Sponsor SAIHM](https://img.shields.io/badge/Sponsor-SAIHM-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/SAIHM-Admin)
+[![Subscribe on YouTube](https://img.shields.io/badge/YouTube-Subscribe-FF0000?logo=youtube&logoColor=white)](https://www.youtube.com/@SAIHM-Memory?sub_confirmation=1)
+[![Follow on X](https://img.shields.io/badge/X-Follow-000000?logo=x&logoColor=white)](https://x.com/SAIHMemory)
+
 <a href="https://saihm.net/overview"><img src="https://saihm.net/media/saihm-short-overview-play.jpg" alt="Watch: SAIHM in 6 minutes" width="480"></a>
 
 **New to SAIHM?** [Watch the 6-minute overview](https://saihm.net/overview) (captions and transcript).
@@ -16,7 +23,10 @@ model, or a different company's product.
 **Encrypted at rest, by default.** Every memory is encrypted on your own machine, inside a
 bundled Node.js sidecar, before it goes anywhere, and SAIHM stores only that ciphertext.
 Nobody else can read your memories — not the storage, not SAIHM. With your key in a key
-file, Python never reads the key. There is nothing to switch on.
+file, Python never reads the key. There is nothing to switch on. With the default free-join
+key file, the client also keeps a local copy of the memories this device has opened, readable
+only by your user account, so recall is fast; set `SAIHM_RECALL_CACHE=0` to keep none
+([details](#how-it-works)).
 
 ## Start free — one command
 
@@ -34,7 +44,8 @@ once, for a quick sign-in that confirms you're a real person:
 **No GitHub account?** Start at <https://saihm.net/free> instead: you sign in with
 Google, and the page gives you your new key. Save it to a file only you can read, and set
 `SAIHM_MASTER_SECRET_FILE` to that file's full path where your app runs. Never paste the
-key itself into code or a settings file.
+key itself into code or a settings file. Your key is ready, so skip free-join: a join would
+make a second, different key.
 
 **If a join is interrupted**, join again on the same machine: it reuses the key it
 already created, so you keep the same identity. Until the sign-in is approved, the key is
@@ -62,11 +73,11 @@ pip install "saihm-adapters[autogen]"      # + AutoGen memory
 pip install "saihm-adapters[all]"          # every adapter
 ```
 
-> **Node.js ≥ 20** must be on `PATH`. The wheel ships only the tiny sidecar sources
-> (`server.mjs` / `sandbox.mjs` + a pinned lockfile); its Node dependencies are installed once
-> into a per-user cache on first use (`npm ci`). Python performs no cryptography — the Node
-> sidecar seals every cell. For air-gapped or CI installs, pre-provision the sidecar and set
-> `SAIHM_SIDECAR_DIR`; `SAIHM_SKIP_BOOTSTRAP=1` forbids any network install.
+> **Node.js ≥ 20** must be on `PATH`. The wheel ships only the small sidecar sources and a
+> pinned lockfile; their Node dependencies are installed once into a per-user cache on first
+> use (`npm ci`). Python performs no cryptography — the Node sidecar seals every cell. For
+> air-gapped or CI installs, pre-provision the sidecar and set `SAIHM_SIDECAR_DIR`;
+> `SAIHM_SKIP_BOOTSTRAP=1` forbids any network install.
 
 ### Quickstart
 
@@ -275,9 +286,9 @@ the card link.
 | What you see | What to do |
 |---|---|
 | `SaihmNoIdentityError` with `kind == "no-identity"` | This machine has no identity: run free-join, or set `SAIHM_MASTER_SECRET_FILE` to your key file |
-| `SaihmNoIdentityError` with `kind == "identity-not-active"` | The free-join sign-in was not approved: run free-join again (it reuses your key) and approve the new code |
+| `SaihmNoIdentityError` with `kind == "identity-not-active"` | SAIHM refused the sign-in, and `reason` holds its code. With `no_free_entitlement`, the free-join sign-in was not approved: run free-join again (it reuses your key) and approve the new code. With another code, check `SAIHM_TIER` and `SAIHM_PAYMENT_METHOD` against your plan |
 | `SaihmStartupError` with `kind == "node-missing"` | Install Node.js 20 or later, or pass `node="/full/path/to/node"` to the client |
-| `SaihmStartupError` with `kind == "install-failed"` or `"not-provisioned"` | The first-run `npm ci` could not finish: check access to the npm registry, or provision the sidecar yourself and set `SAIHM_SIDECAR_DIR` |
+| `SaihmStartupError` with `kind == "install-failed"` or `"not-provisioned"` | The sidecar could not be installed: allow access to the npm registry (and unset `SAIHM_SKIP_BOOTSTRAP`), or provision the sidecar yourself and set `SAIHM_SIDECAR_DIR` |
 | A call raises `RuntimeError` with the service's reason | The service refused the call, for example because the free allowance is used up: see [What it costs](#what-it-costs) |
 | A call raises `RuntimeError` saying the endpoint could not be reached | The machine cannot reach `saihm.net`: allow it in the network settings; if traffic must go through a proxy, set `HTTPS_PROXY` |
 | A different memory than you expected | This machine has its own key rather than yours: see [Your memories follow your key](#your-memories-follow-your-key) |
@@ -309,7 +320,7 @@ was deleted somewhere.
 
 ## Configuration
 
-Most apps need only `SAIHM_ENDPOINT_URL`. The client reads these environment variables:
+Most apps need only `SAIHM_ENDPOINT_URL`. These are the main settings:
 
 | Variable | What it does |
 |---|---|
@@ -327,6 +338,11 @@ Most apps need only `SAIHM_ENDPOINT_URL`. The client reads these environment var
 - **Star it on [GitHub](https://github.com/SAIHM-Admin/saihm-adapters).** Stars help other
   developers find SAIHM.
 - **Share it** with a colleague, your team, or anyone whose agents keep forgetting.
+- **Follow [@SAIHMemory on X](https://x.com/SAIHMemory)** for news and updates.
+- **Sponsor it** through [GitHub Sponsors](https://github.com/sponsors/SAIHM-Admin), monthly or one-time.
+- **Follow along on YouTube:** like the videos,
+  [subscribe to the channel](https://www.youtube.com/@SAIHM-Memory?sub_confirmation=1), and turn on notifications
+  with the bell 🔔 for new videos and updates.
 - **Questions or problems?** See [contact and support](https://saihm.net/contact), or open an
   issue on [GitHub](https://github.com/SAIHM-Admin/saihm-adapters/issues).
 

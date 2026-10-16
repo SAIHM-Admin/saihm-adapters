@@ -1,10 +1,11 @@
 """SAIHM memory for Python — a thin, synchronous client over the SAIHM MCP node sidecar.
 
-All cryptography happens in the Node sidecar (``server.mjs`` / ``@saihm/mcp-server-pro``):
-every cell is sealed client-side (ML-DSA-65 + AES-256-GCM, its key wrapped under *your*
-master secret) before it leaves the process, and the endpoint only ever sees ciphertext.
-Python performs no cryptography and, when the key is in a key file, never reads your key; it
-drives the sidecar over MCP stdio. This keeps one audited crypto implementation instead of porting it to a second language.
+All cryptography happens in the Node sidecar, which runs the SAIHM client of
+``@saihm/mcp-server-pro``: every cell is sealed client-side (ML-DSA-65 + AES-256-GCM, its key
+wrapped under *your* master secret) before it leaves the process, and the endpoint only ever
+sees ciphertext. Python performs no cryptography and, when the key is in a key file, never
+reads your key; it drives the sidecar over MCP stdio, so all of the cryptography stays in that
+one client.
 
 This client is **synchronous and blocking**. Inside an async app (FastAPI, etc.), call its
 methods in a worker thread, e.g. ``await loop.run_in_executor(None, client.remember, text)``.
@@ -69,7 +70,7 @@ _SELF_JOIN_OFF_TEXT = (
 )
 _NOT_ACTIVE_TEXT = {
     "no_free_entitlement": (
-        "Your SAIHM identity is not active yet: its key file is on this machine, but its sign-in "
+        "Your SAIHM identity is not active yet: its key is on this machine, but its sign-in "
         "was not approved.\n"
         f"Run  {_FREE_JOIN}  again: it reuses your key and shows a new code. Open the link, sign "
         "in to GitHub, enter the code and approve, then start the client again.\n"
@@ -82,11 +83,15 @@ _NOT_ACTIVE_TEXT = {
         "client again."
     ),
 }
+# Any other refusal, for example a paid-plan setting the service rejects (bad_tier,
+# bad_payment_method): the reason code leads, because the free-join steps may not apply.
 _NOT_ACTIVE_DEFAULT = (
-    "SAIHM did not accept this identity, so live mode cannot start.\n"
-    f"If you created it with free-join, run  {_FREE_JOIN}  again: it reuses your key and shows a "
-    "new code. Open the link, sign in to GitHub, enter the code and approve, then start the "
-    "client again."
+    "SAIHM did not accept this identity at sign-in{code}, so live mode cannot start.\n"
+    "If SAIHM_TIER or SAIHM_PAYMENT_METHOD is set, check that they name this identity's plan and "
+    "its payment rail.\n"
+    f"If you created the identity with free-join, run  {_FREE_JOIN}  again: it reuses your key "
+    "and shows a new code. Open the link, sign in to GitHub, enter the code and approve, then "
+    "start the client again."
 )
 
 
@@ -121,7 +126,10 @@ class SaihmNoIdentityError(SaihmStartupError):
 
     def __str__(self) -> str:
         if self.kind == "identity-not-active":
-            return _NOT_ACTIVE_TEXT.get(self.reason, _NOT_ACTIVE_DEFAULT)
+            if self.reason in _NOT_ACTIVE_TEXT:
+                return _NOT_ACTIVE_TEXT[self.reason]
+            code = f" (reason code: {self.reason})" if self.reason else ""
+            return _NOT_ACTIVE_DEFAULT.format(code=code)
         text = _NO_IDENTITY_TEXT
         if "SAIHM_SELF_JOIN=0" in self.message:
             text += _SELF_JOIN_OFF_TEXT
@@ -252,7 +260,7 @@ def _reap(loop, thread, stop_box):
 class SaihmMemoryClient:
     """Synchronous facade over the SAIHM MCP sidecar.
 
-    Spawns ``node server.mjs`` once and keeps a single long-lived MCP session on a
+    Spawns the Node sidecar once and keeps a single long-lived MCP session on a
     background event loop, so blocking ``remember`` / ``recall`` / ``forget`` / ``status``
     calls all share the same in-process memory.
 
@@ -262,7 +270,8 @@ class SaihmMemoryClient:
     machine, then set ``SAIHM_ENDPOINT_URL=https://saihm.net/mcp``. The sidecar finds the key
     file free-join saves; set ``SAIHM_MASTER_SECRET_FILE`` if you keep it elsewhere. The key
     stays in the file and the sidecar; Python never reads it. With no identity, or with a key
-    whose free-join sign-in was not finished, live mode raises :class:`SaihmNoIdentityError`.
+    the service refuses at sign-in (for example, one whose free-join sign-in was not finished),
+    live mode raises :class:`SaihmNoIdentityError`.
     Every other start-up failure raises :class:`SaihmStartupError`, and a call the service
     refuses raises ``RuntimeError`` with the service's explanation.
 

@@ -9,6 +9,7 @@ travels the whole way through the installed mcp release.
 from __future__ import annotations
 
 import importlib.metadata
+import time
 
 import pytest
 from mcp import types
@@ -117,6 +118,61 @@ def test_active_identity_starts_after_one_sign_in(fake_endpoint, clean_identity_
         assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 1
         assert fake_endpoint.seen.count(("POST", "/mcp")) == 1  # the start-up status check
         assert c.status() == "tier=FREE memories=0 custody=non-custodial"
+    assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 1
+
+
+def _refusal(reason):
+    return (401, {"error": "verification_failed", "reason": reason})
+
+
+def test_challenge_refusal_gets_one_more_sign_in(fake_endpoint, clean_identity_env, make_key, tmp_path):
+    # The service lost its one-time challenge, for example in a restart between the two sign-in
+    # steps. That says nothing about the identity, so start-up signs in once more.
+    make_key(tmp_path / ".saihm" / "free-identity.key")
+    fake_endpoint.onboard_reply = [_refusal("unknown_nonce"), (200, {"jwt": "test-token"})]
+    fake_endpoint.call_reply = (200, {"tier": "FREE", "activeShardCount": 0, "custody": "non-custodial"})
+    env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
+    with SaihmMemoryClient(env=env, timeout=60) as c:
+        assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 2
+        assert c.status() == "tier=FREE memories=0 custody=non-custodial"
+
+
+def test_challenge_refused_twice_does_not_block_start_up(fake_endpoint, clean_identity_env, make_key, tmp_path):
+    make_key(tmp_path / ".saihm" / "free-identity.key")
+    fake_endpoint.onboard_reply = _refusal("nonce_expired")
+    env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
+    with SaihmMemoryClient(env=env, timeout=60) as c:
+        assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 2  # one more, then go ahead
+        with pytest.raises(RuntimeError, match="nonce_expired"):
+            c.remember("x")
+
+
+def test_settings_refusal_names_its_reason_code(fake_endpoint, clean_identity_env, make_key, tmp_path):
+    # A paid-plan setting the service rejects is not a free-join problem: the reason code leads.
+    make_key(tmp_path / ".saihm" / "free-identity.key")
+    fake_endpoint.onboard_reply = _refusal("bad_tier")
+    with pytest.raises(SaihmNoIdentityError) as exc:
+        SaihmMemoryClient(env=_live_env(tmp_path, fake_endpoint.url), timeout=60)
+    err = exc.value
+    assert (err.kind, err.reason) == ("identity-not-active", "bad_tier")
+    text = str(err)
+    assert "reason code: bad_tier" in text and "SAIHM_TIER" in text
+    assert not any(phrase in text for phrase in HOST_CHAT), text
+    assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 1  # no second sign-in for it
+
+
+def test_endpoint_that_never_answers_delays_start_up_by_at_most_20_s(
+    fake_endpoint, clean_identity_env, make_key, tmp_path
+):
+    # The start-up check gives up after 20 s and the client starts. The sign-in request itself
+    # would give up only after 30 s, so a start-up near 20 s shows the cap at work.
+    make_key(tmp_path / ".saihm" / "free-identity.key")
+    fake_endpoint.onboard_reply = fake_endpoint.HANG
+    env = {**_live_env(tmp_path, fake_endpoint.url), "SAIHM_RECALL_CACHE": "0"}
+    began = time.monotonic()
+    with SaihmMemoryClient(env=env, timeout=60):
+        waited = time.monotonic() - began
+    assert 19 <= waited < 27, waited
     assert fake_endpoint.seen.count(("POST", "/api/onboard")) == 1
 
 

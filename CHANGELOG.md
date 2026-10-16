@@ -14,12 +14,15 @@
   `pip install "mcp<2"` until you can.
 - **An unfinished free-join is reported at start-up.** `free-join` saves your key before you
   approve the sign-in. Until you do, the service does not accept the key, but 0.1.2 started
-  as if it were ready. In live mode the client now checks with the service once at start-up,
-  and a key that is not active yet raises `SaihmNoIdentityError` (`kind ==
-  "identity-not-active"`) with the steps to finish: run free-join again, which reuses your
-  key. A paid identity without an active subscription is reported the same way. If the
-  service cannot be reached at start-up, the client starts as before and each call reports
-  the problem.
+  as if it were ready. In live mode the client now checks with the service at start-up, and a
+  key that is not active yet raises `SaihmNoIdentityError` (`kind == "identity-not-active"`)
+  with the steps to finish: run free-join again, which reuses your key. Other sign-in
+  refusals, such as a paid identity without an active subscription or a plan setting the
+  service rejects, raise the same error with the service's reason code in `reason`, and
+  `str(error)` names the code when the free-join steps may not apply. A refusal of the one-time
+  sign-in challenge, which a restart of the service can cause, gets one more sign-in and never
+  stops start-up. If the service cannot be reached, the client starts as before and each call
+  reports the problem; if it does not answer, start-up goes ahead after 20 seconds.
 - **Errors written for Python developers.** `str(SaihmNoIdentityError)` now carries only the
   steps for a Python app. The sidecar's own message, written for MCP hosts such as editors,
   stays on the error's `message` attribute for logs.
@@ -38,21 +41,24 @@
   app, agent frameworks, your key, what it costs (with the
   [pricing page](https://saihm.net/pricing)), troubleshooting, how it works, configuration
   and support. New: a runnable LangGraph graph (`graph.compile(store=SaihmStore())`), the
-  CrewAI registration (`set_memory_storage_factory`), and every environment variable the
-  client reads.
-- **Tests** run the full client against `mcp` 1.x and 2.x, including the refusal paths, with a
-  local stand-in for the hosted endpoint.
+  CrewAI registration (`set_memory_storage_factory`), and a table of the main settings.
+- **Tests** run the full client against `mcp` 1.x and 2.x, including the refusal paths and the
+  start-up time limit, with a local stand-in for the hosted endpoint. A timed-out call is
+  tested to raise `SaihmTimeout`.
 
 ### Upgrading from 0.1.2
 
 - Code that relied on `forget()` returning `False`, or `recall()` returning `[]`, when the
   service refused the call now gets a `RuntimeError` instead. An id that does not exist still
   returns `False` from `forget()`.
-- In live mode, `SaihmMemoryClient()` now contacts the service once at start-up. A key that is
+- In live mode, `SaihmMemoryClient()` now signs in to the service at start-up. A key that is
   not active yet raises `SaihmNoIdentityError` there, where it used to fail on the first call.
+  If the service does not answer, start-up waits up to 20 seconds before going ahead.
 - Start-up failures that used to raise a plain `RuntimeError` or an OS error now raise
   `SaihmStartupError`, a `RuntimeError` subclass, so existing `except RuntimeError` clauses
   still catch them.
+- The previous sidecar stays in `~/.cache/saihm-adapters/0.1.2-*` (under `$XDG_CACHE_HOME` if
+  set). Nothing loads it; delete it so security scans of the cache see only the current one.
 
 ## 0.1.2
 
