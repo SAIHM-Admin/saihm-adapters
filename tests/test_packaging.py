@@ -104,6 +104,13 @@ _FLOORS = {
     "SaihmRetriever": ("llama-index-core", "0.14"),
     "SaihmStorageBackend": ("crewai", "1.15"),
 }
+# The extra that installs each adapter, written out for the same reason.
+_EXTRAS = {
+    "SaihmChatMessageHistory": "langchain",
+    "SaihmStore": "langgraph",
+    "SaihmRetriever": "rag",
+    "SaihmStorageBackend": "crewai",
+}
 
 
 def _expected_listing() -> dict:
@@ -158,6 +165,7 @@ def test_listing_floors_are_the_extras_floors():
 
     requires = [Requirement(r) for r in importlib.metadata.requires("saihm-adapters") or []]
     for name, (_, extra, dist, floor) in saihm_adapters._LAZY.items():
+        assert extra == _EXTRAS[name], (name, extra, _EXTRAS[name])
         lows = [Version(s.version) for r in requires
                 if r.name == dist and r.marker is not None and r.marker.evaluate({"extra": extra})
                 for s in r.specifier if s.operator == ">="]
@@ -264,4 +272,5 @@ def test_missing_extra_gives_directive_importerror(attr, extra, dep):
     assert attr not in saihm_adapters.__all__ and attr not in dir(saihm_adapters)
     with pytest.raises(ImportError) as exc:
         getattr(saihm_adapters, attr)
-    assert extra in str(exc.value)
+    # The install line itself, so the missing dependency's name cannot stand in for the extra.
+    assert f'pip install "saihm-adapters[{extra}]"' in str(exc.value)
