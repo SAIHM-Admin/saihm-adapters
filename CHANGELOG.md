@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.1.3
+
+- **A call the service refuses now raises, on every `mcp` release this package supports.**
+  `mcp` 2.x renamed the error flag on tool results (`isError` became `is_error`), and 0.1.2
+  read only the old name. With `mcp` 2.x installed, which is what a fresh install picks, a
+  refused call looked like a success: `remember()` returned an id for a write that was never
+  stored, `recall()` returned an empty list, and `forget()` returned `False`. The client now
+  reads both names, so every refused call raises `RuntimeError` with the service's reason, and
+  `forget()` raises instead of returning `False` when an erase is refused. A tool result with
+  neither flag raises too, and `recall()` raises on a result that is not a list of memories
+  instead of returning an empty one. If you are on 0.1.2, upgrade, or run
+  `pip install "mcp<2"` until you can.
+- **An unfinished free-join is reported at start-up.** `free-join` saves your key before you
+  approve the sign-in. Until you do, the service does not accept the key, but 0.1.2 started
+  as if it were ready. In live mode the client now checks with the service once at start-up,
+  and a key that is not active yet raises `SaihmNoIdentityError` (`kind ==
+  "identity-not-active"`) with the steps to finish: run free-join again, which reuses your
+  key. A paid identity without an active subscription is reported the same way. If the
+  service cannot be reached at start-up, the client starts as before and each call reports
+  the problem.
+- **Errors written for Python developers.** `str(SaihmNoIdentityError)` now carries only the
+  steps for a Python app. The sidecar's own message, written for MCP hosts such as editors,
+  stays on the error's `message` attribute for logs.
+- **Every start-up failure raises `SaihmStartupError`.** A missing Node.js (before or after the
+  sidecar is installed), a sidecar that is not installed while `SAIHM_SKIP_BOOTSTRAP` is set, a
+  failed or timed-out sidecar install, a `SAIHM_SIDECAR_DIR` without a sidecar, and a sidecar
+  that exits without a message all raise it now. Its `kind` attribute names the failure.
+- **Sidecar dependencies updated.** The bundled lockfile moves to `@modelcontextprotocol/sdk`
+  1.32.1, `proxy-addr` 2.0.8, `hono` 4.13.13, `ip-address` 10.7.4 and `fast-uri` 3.1.8. When
+  this release was built, `npm audit --omit=dev` reported no known vulnerabilities in it. The
+  sidecar talks MCP over stdio and does not load its dependencies' HTTP-server code. The first
+  run after upgrading installs the new sidecar by itself.
+- **On Python 3.10, a call that times out raises `SaihmTimeout`** as documented. It raised a
+  generic `RuntimeError` there before, because 3.10 has a separate timeout class for futures.
+- **README.** It follows the `@saihm/mcp-server-pro` README: start free, add SAIHM to your
+  app, agent frameworks, your key, what it costs (with the
+  [pricing page](https://saihm.net/pricing)), troubleshooting, how it works, configuration
+  and support. New: a runnable LangGraph graph (`graph.compile(store=SaihmStore())`), the
+  CrewAI registration (`set_memory_storage_factory`), and every environment variable the
+  client reads.
+- **Tests** run the full client against `mcp` 1.x and 2.x, including the refusal paths, with a
+  local stand-in for the hosted endpoint.
+
+### Upgrading from 0.1.2
+
+- Code that relied on `forget()` returning `False`, or `recall()` returning `[]`, when the
+  service refused the call now gets a `RuntimeError` instead. An id that does not exist still
+  returns `False` from `forget()`.
+- In live mode, `SaihmMemoryClient()` now contacts the service once at start-up. A key that is
+  not active yet raises `SaihmNoIdentityError` there, where it used to fail on the first call.
+- Start-up failures that used to raise a plain `RuntimeError` or an OS error now raise
+  `SaihmStartupError`, a `RuntimeError` subclass, so existing `except RuntimeError` clauses
+  still catch them.
+
 ## 0.1.2
 
 - **A clear error when there is no identity yet.** In live mode (`SAIHM_ENDPOINT_URL` set) with

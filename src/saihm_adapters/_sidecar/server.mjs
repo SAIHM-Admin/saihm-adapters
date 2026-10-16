@@ -11,9 +11,10 @@
 //   SANDBOX  (default)      no SAIHM_ENDPOINT_URL -> a local, in-process blind endpoint; memory
 //                           lasts only as long as this process. Good for trying it with zero signup.
 //
-// If the sidecar cannot start (for example, no identity on this device yet, or a dependency that
-// fails to load), it writes one line, BOOT_MARKER + JSON {kind, message}, to stderr and exits, so
-// the Python client can raise a typed error that carries the message.
+// If the sidecar cannot start (for example, no identity on this device yet, an identity whose
+// sign-in was never finished, or a dependency that fails to load), it writes one line,
+// BOOT_MARKER + JSON {kind, message, reason?}, to stderr and exits, so the Python client can
+// raise a typed error that carries the message.
 
 import { randomBytes } from 'node:crypto';
 
@@ -24,10 +25,44 @@ let deriveIdentity, toHex, fromHex, SaihmProClient, startSandbox;
 
 const BOOT_MARKER = 'saihm-sidecar-error ';
 const NO_IDENTITY = /^No SAIHM (memory yet on this device|identity is configured)/;
+// How long start-up waits to learn whether a live identity is active before going ahead anyway.
+const IDENTITY_CHECK_MS = 20_000;
+
+class BootError extends Error {
+  constructor(kind, message, reason) {
+    super(message);
+    this.kind = kind;
+    this.reason = reason;
+  }
+}
+
+// Live mode: ask the service once whether this identity is active before reporting ready. A key
+// that free-join saved before its sign-in was finished is refused at sign-in with 401
+// verification_failed; report that as an identity that is not active, so the caller gets a typed
+// error at start-up instead of a client that fails every call. Anything else (no network, a
+// timeout, a server error, a used-up allowance) does not stop start-up: the calls report it.
+async function checkIdentityActive(client) {
+  const probe = client.status();
+  probe.catch(() => {}); // after the time limit below, a late failure is the calls' to report
+  let timer;
+  const timeUp = new Promise((resolve) => { timer = setTimeout(resolve, IDENTITY_CHECK_MS); });
+  try {
+    await Promise.race([probe, timeUp]);
+  } catch (e) {
+    if (e?.status === 401 && e?.code === 'verification_failed') {
+      const reason = /\(verification_failed: ([a-z0-9_]+)\)/.exec(String(e?.message ?? ''))?.[1] ?? '';
+      throw new BootError('identity-not-active', String(e?.message ?? e), reason);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function makeClient() {
   if (process.env.SAIHM_ENDPOINT_URL) {
-    return { client: SaihmProClient.bootFromEnv(), mode: 'live', close: async () => {} };
+    const client = SaihmProClient.bootFromEnv();
+    await checkIdentityActive(client);
+    return { client, mode: 'live', close: async () => {} };
   }
   // A sandbox identity lasts one process. Keep it off disk: no erasure feed under ~/.saihm for a
   // throwaway tenant, and no recall cache (which also silences the client's notice about it).
@@ -52,8 +87,10 @@ try {
   booted = await makeClient();
 } catch (e) {
   const message = String(e?.message ?? e);
-  const kind = NO_IDENTITY.test(message) ? 'no-identity' : 'startup';
-  process.stderr.write(BOOT_MARKER + JSON.stringify({ kind, message }) + '\n', () => process.exit(1));
+  const kind = e instanceof BootError ? e.kind : NO_IDENTITY.test(message) ? 'no-identity' : 'startup';
+  const out = { kind, message };
+  if (e instanceof BootError && e.reason) out.reason = e.reason;
+  process.stderr.write(BOOT_MARKER + JSON.stringify(out) + '\n', () => process.exit(1));
   await new Promise(() => {}); // wait for the write callback to exit
 }
 const { client, mode, close } = booted;
@@ -81,7 +118,7 @@ const TOOLS = [
   },
 ];
 
-const server = new Server({ name: 'saihm-adapters', version: '0.1.2' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'saihm-adapters', version: '0.1.3' }, { capabilities: { tools: {} } });
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 

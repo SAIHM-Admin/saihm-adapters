@@ -30,6 +30,8 @@ from importlib import resources
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 
+from .client import SaihmStartupError
+
 _BUNDLE_FILES = ("server.mjs", "sandbox.mjs", "package.json", "package-lock.json")
 _READY = ".saihm-sidecar-ready"
 _DEFAULT_INSTALL_TIMEOUT = 600  # seconds; a cold `npm ci` on a slow link is minutes, not hours
@@ -89,16 +91,18 @@ def _provision(dest: Path, allow_install: bool) -> None:
     """Populate a fresh temp dir with the bundle + installed node_modules, then atomically
     move it to ``dest``. Idempotent under concurrency via os.replace."""
     if not allow_install:
-        raise RuntimeError(
+        raise SaihmStartupError(
             "SAIHM sidecar is not provisioned and SAIHM_SKIP_BOOTSTRAP is set. "
-            f"Provision {dest} out-of-band (npm ci) or unset SAIHM_SKIP_BOOTSTRAP."
+            f"Provision {dest} out-of-band (npm ci) or unset SAIHM_SKIP_BOOTSTRAP.",
+            kind="not-provisioned",
         )
     npm = shutil.which("npm")
     node = shutil.which("node")
     if not npm or not node:
-        raise RuntimeError(
+        raise SaihmStartupError(
             "The saihm-adapters sidecar needs Node.js (node + npm) on PATH — install Node >=20 "
-            "(https://nodejs.org). Python performs no cryptography; the Node sidecar seals every cell."
+            "(https://nodejs.org). Python performs no cryptography; the Node sidecar seals every cell.",
+            kind="node-missing",
         )
     src = _bundle_dir()
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -116,16 +120,18 @@ def _provision(dest: Path, allow_install: bool) -> None:
                 timeout=_install_timeout(),
             )
         except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(
+            raise SaihmStartupError(
                 f"Timed out after {_install_timeout()}s installing the SAIHM Node sidecar "
                 "dependencies (npm ci). Check network/registry access, or pre-provision the "
                 "sidecar and point SAIHM_SIDECAR_DIR at it. Raise the limit with "
-                "SAIHM_BOOTSTRAP_TIMEOUT (seconds)."
+                "SAIHM_BOOTSTRAP_TIMEOUT (seconds).",
+                kind="install-failed",
             ) from exc
         if proc.returncode != 0:
-            raise RuntimeError(
+            raise SaihmStartupError(
                 "Failed to install the SAIHM Node sidecar dependencies "
-                f"(npm ci exit {proc.returncode}):\n{proc.stdout.strip()[-2000:]}"
+                f"(npm ci exit {proc.returncode}):\n{proc.stdout.strip()[-2000:]}",
+                kind="install-failed",
             )
         (tmp / _READY).write_text("ok\n", encoding="utf-8")
         try:
@@ -147,7 +153,9 @@ def ensure_sidecar() -> str:
     if override:
         server = Path(override).expanduser().resolve() / "server.mjs"
         if not server.is_file():
-            raise RuntimeError(f"SAIHM_SIDECAR_DIR={override} has no server.mjs")
+            raise SaihmStartupError(
+                f"SAIHM_SIDECAR_DIR={override} has no server.mjs", kind="not-provisioned"
+            )
         if _lock_digest(server.parent) != _lock_digest(_bundle_dir()):
             warnings.warn(
                 f"SAIHM_SIDECAR_DIR={override} was provisioned from a different saihm-adapters "

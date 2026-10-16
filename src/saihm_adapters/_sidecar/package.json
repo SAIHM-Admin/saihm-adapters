@@ -1,6 +1,6 @@
 {
   "name": "saihm-adapters-sidecar",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "SAIHM Node MCP sidecar for the Python saihm-adapters package: owned, portable, provably-erasable agent memory. Python holds no keys; the sidecar seals every cell client-side.",
@@ -13,7 +13,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@saihm/client-pro": "^0.1.5",
     "@saihm/mcp-server-pro": "^0.14.0"
   }

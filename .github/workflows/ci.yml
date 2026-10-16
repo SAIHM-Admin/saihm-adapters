@@ -34,3 +34,32 @@ jobs:
 
       - name: Test
         run: pytest -q
+
+  # CrewAI pins mcp 1.28.x, so the job above never meets mcp 2.x, which is what a fresh
+  # install without CrewAI picks. Run everything else against the newest mcp 1.x and 2.x.
+  mcp:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mcp: ["mcp>=1.21.1,<2", "mcp>=2,<3"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (every extra but CrewAI, with the mcp release under test)
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[langchain,langgraph,llamaindex,rag,autogen]" "${{ matrix.mcp }}" "pytest>=7" "pytest-asyncio>=0.23"
+          python -c "import importlib.metadata as m; print('mcp', m.version('mcp'))"
+
+      - name: Test
+        run: pytest -q --ignore=tests/crewai
